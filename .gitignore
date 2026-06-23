@@ -1,0 +1,16 @@
+# 排除 Node.js 套件目錄（這個極大，絕對不要傳）
+node_modules/
+
+# 排除 TypeScript 編譯後的 JavaScript 產物
+dist/
+
+# 排除臨時編譯的工作目錄
+workspace_*/
+
+# ⚠️ 排除你的自簽憑證隱私檔案（保護安全性）
+server.key
+server.crt
+
+# 排除系統暫存檔
+.DS_Store
+Thumbs.db

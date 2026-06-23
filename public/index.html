@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>我的雲端 Arduino IDE</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/avrgirl-arduino@4.4.0/dist/avrgirl-arduino.global.min.js"></script>
+    
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 600px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        textarea { width: 100%; font-family: monospace; font-size: 14px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        button { background: #00878f; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; margin-top: 10px; }
+        button:hover { background: #00666c; }
+        pre { background: #eee; padding: 10px; border-radius: 4px; max-height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>我的網頁版 Arduino IDE (階段 2)</h2>
+    <p>撰寫你的程式碼，並點擊下方按鈕進行「雲端編譯 ＋ 本地網頁燒錄」：</p>
+    
+    <textarea id="codeEditor" rows="12">
+void setup() {
+  pinMode(13, OUTPUT);
+}
+
+void loop() {
+  digitalWrite(13, HIGH);
+  delay(100); // 100ms 高速閃爍，跟原本的板子拉開差別
+  digitalWrite(13, LOW);
+  delay(100);
+}</textarea>
+
+    <br>
+    <button id="actionBtn" onclick="compileAndFlash()">一鍵編譯並燒錄</button>
+    
+    <h3>執行狀態日誌：</h3>
+    <pre id="logStatus">等待操作...</pre>
+</div>
+
+<script>
+    async function compileAndFlash() {
+        const code = document.getElementById('codeEditor').value;
+        const logStatus = document.getElementById('logStatus');
+        const actionBtn = document.getElementById('actionBtn');
+        
+        actionBtn.disabled = true;
+        logStatus.innerText = "⏳ 正在將程式碼傳送至 TypeScript 後端編譯中...";
+        logStatus.style.color = "blue";
+
+        try {
+            // 1. 發送 POST 請求給你的 Express 後端
+            const response = await fetch('/api/compile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    boardType: 'uno',
+                    code: code
+                })
+            });
+
+            if (!response.ok) {
+                const errResult = await response.json();
+                throw new Error(errResult.error || "編譯伺服器發生錯誤");
+            }
+
+            // 2. 接收後端傳回的二進位 HEX 資料
+            logStatus.innerText = "🎯 雲端編譯成功！\n🔌 請在瀏覽器彈出視窗中選擇你的 Arduino Uno 連接埠 (COM Port)...";
+            const hexBuffer = await response.arrayBuffer();
+
+            // 3. 🟢 關鍵修正：確保安全呼叫 window.AvrgirlArduino
+            if (!window.AvrgirlArduino) {
+                throw new Error("瀏覽器依然無法載入燒錄模組，請確認網路連線是否正常。");
+            }
+
+            const avrgirl = new window.AvrgirlArduino({
+                board: 'uno',
+                debug: false
+            });
+
+            // 開始把資料倒進 MCU
+            avrgirl.flash(hexBuffer, (err) => {
+                actionBtn.disabled = false;
+                if (err) {
+                    logStatus.innerText = "❌ 燒錄失敗: " + err.message;
+                    logStatus.style.color = "red";
+                } else {
+                    logStatus.innerText = "🎉 【完美成功】程式已成功燒錄！\n你手邊的 Arduino Uno 應該已經開始高速閃爍囉！";
+                    logStatus.style.color = "green";
+                }
+            });
+
+        } catch (error) {
+            actionBtn.disabled = false;
+            logStatus.innerText = "❌ 錯誤: " + error.message;
+            logStatus.style.color = "red";
+        }
+    }
+</script>
+
+</body>
+</html>
