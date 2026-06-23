@@ -5,18 +5,21 @@
   "main": "index.js",
   "scripts": {
     "dev": "ts-node src/server.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "cert": "cross-env MSYS_NO_PATHCONV=1 \"C:\\Program Files\\Git\\usr\\bin\\openssl.exe\" req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout server.key -out server.crt -subj \"/CN=arduino-ide.local\""
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "bonjour-service": "^1.4.1",
     "express": "^5.2.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^26.0.0",
+    "cross-env": "^10.1.0",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   }

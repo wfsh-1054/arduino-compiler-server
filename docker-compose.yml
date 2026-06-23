@@ -1,0 +1,9 @@
+services:
+  arduino-ide:
+    build: .
+    container_name: arduino_compiler_container
+    ports:
+      - "3000:3000" # 🟢 讓本機 localhost:3000 絕對暢通
+    restart: always
+    volumes:
+      - ./tmp_workspace:/app/workspace

@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>我的雲端 Arduino IDE</title>
+    <title>我的雲端 Arduino IDE - 終極無彈窗版</title>
     
     <script src="https://cdn.jsdelivr.net/npm/avrgirl-arduino@4.4.0/dist/avrgirl-arduino.global.min.js"></script>
     
@@ -10,16 +10,20 @@
         body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
         .container { max-width: 600px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         textarea { width: 100%; font-family: monospace; font-size: 14px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
-        button { background: #00878f; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; margin-top: 10px; }
-        button:hover { background: #00666c; }
+        button { color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; margin-top: 10px; margin-right: 10px; }
+        .btn-port { background: #e07a5f; }
+        .btn-port:hover { background: #c9644b; }
+        .btn-compile { background: #00878f; }
+        .btn-compile:hover { background: #00666c; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
         pre { background: #eee; padding: 10px; border-radius: 4px; max-height: 200px; overflow-y: auto; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>我的網頁版 Arduino IDE (階段 2)</h2>
-    <p>撰寫你的程式碼，並點擊下方按鈕進行「雲端編譯 ＋ 本地網頁燒錄」：</p>
+    <h2>我的網頁版 Arduino IDE (階段 3 - 終極流暢版)</h2>
+    <p>先點擊「選擇連接埠」，之後修改程式碼只需狂按「一鍵編譯並燒錄」即可背景自動化執行：</p>
     
     <textarea id="codeEditor" rows="12">
 void setup() {
@@ -28,37 +32,72 @@ void setup() {
 
 void loop() {
   digitalWrite(13, HIGH);
-  delay(100); // 100ms 高速閃爍，跟原本的板子拉開差別
+  delay(100); 
   digitalWrite(13, LOW);
   delay(100);
 }</textarea>
 
     <br>
-    <button id="actionBtn" onclick="compileAndFlash()">一鍵編譯並燒錄</button>
+    <button id="portBtn" class="btn-port" onclick="selectSerialPort()">🔌 1. 選擇連接埠 (未連接)</button>
+    <button id="actionBtn" class="btn-compile" onclick="compileAndFlash()" disabled>🚀 2. 一鍵編譯並燒錄</button>
     
     <h3>執行狀態日誌：</h3>
-    <pre id="logStatus">等待操作...</pre>
+    <pre id="logStatus">請先點擊上方橘色按鈕選取你的 Arduino 連接埠...</pre>
 </div>
 
 <script>
+    // 全域變數：保存真正被選中的序列埠物件
+    let savedPort = null;
+    
+    // 💾 備份瀏覽器原始的彈窗函式
+    const originalRequestPort = navigator.serial.requestPort.bind(navigator.serial);
+
+    // 🎯 1. 選擇連接埠（只會在這裡彈出唯一一次）
+    async function selectSerialPort() {
+        const logStatus = document.getElementById('logStatus');
+        const portBtn = document.getElementById('portBtn');
+        const actionBtn = document.getElementById('actionBtn');
+
+        try {
+            // 呼叫原始的彈窗，讓使用者選取
+            savedPort = await originalRequestPort();
+            
+            portBtn.innerText = "✅ 1. 連接埠已就緒";
+            portBtn.style.background = "#2a9d8f";
+            actionBtn.disabled = false; 
+            
+            logStatus.innerText = "👍 成功綁定 Arduino！\n接下來無論修改幾次程式碼，直接點擊「一鍵編譯並燒錄」即可背景全自動上傳！";
+            logStatus.style.color = "green";
+        } catch (error) {
+            logStatus.innerText = "❌ 未選取連接埠: " + error.message;
+            logStatus.style.color = "red";
+        }
+    }
+
+    // 🎯 2. 背景編譯與全自動無彈窗燒錄
     async function compileAndFlash() {
         const code = document.getElementById('codeEditor').value;
         const logStatus = document.getElementById('logStatus');
         const actionBtn = document.getElementById('actionBtn');
+        const portBtn = document.getElementById('portBtn');
         
-        actionBtn.disabled = true;
-        logStatus.innerText = "⏳ 正在將程式碼傳送至 TypeScript 後端編譯中...";
-        logStatus.style.color = "blue";
+        if (!savedPort) {
+            logStatus.innerText = "❌ 錯誤: 請先選擇連接埠！";
+            logStatus.style.color = "red";
+            return;
+        }
 
         try {
-            // 1. 發送 POST 請求給你的 Express 後端
+            actionBtn.disabled = true;
+            portBtn.disabled = true;
+            logStatus.innerText = "⏳ 正在將程式碼傳送至 TypeScript 後端編譯中...";
+            logStatus.style.color = "blue";
+
+            // 一、發送 POST 請求給 Express 後端編譯
             const response = await fetch('/api/compile', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    boardType: 'uno',
-                    code: code
-                })
+                body: JSON.stringify({ boardType: 'uno', code: code })
             });
 
             if (!response.ok) {
@@ -66,34 +105,42 @@ void loop() {
                 throw new Error(errResult.error || "編譯伺服器發生錯誤");
             }
 
-            // 2. 接收後端傳回的二進位 HEX 資料
-            logStatus.innerText = "🎯 雲端編譯成功！\n🔌 請在瀏覽器彈出視窗中選擇你的 Arduino Uno 連接埠 (COM Port)...";
+            // 二、接收編譯好的二進位 HEX 資料
+            logStatus.innerText = "🎯 雲端編譯成功！開始背景自動寫入晶片...";
+            logStatus.style.color = "orange";
             const hexBuffer = await response.arrayBuffer();
 
-            // 3. 🟢 關鍵修正：確保安全呼叫 window.AvrgirlArduino
-            if (!window.AvrgirlArduino) {
-                throw new Error("瀏覽器依然無法載入燒錄模組，請確認網路連線是否正常。");
-            }
+            // 三、🔥 【黑魔法核心】：短暫劫持瀏覽器的 requestPort 函式
+            // 當 avrgirl 內部企圖彈窗時，我們會強行攔截並直接把先前存好的 savedPort 丟給它！
+            navigator.serial.requestPort = async function() {
+                return savedPort;
+            };
 
-            const avrgirl = new window.AvrgirlArduino({
-                board: 'uno',
-                debug: false
-            });
-
-            // 開始把資料倒進 MCU
+            // 四、初始化 Avrgirl 燒錄器
+            const avrgirl = new window.AvrgirlArduino({ board: 'uno', debug: false });
+            
+            // 五、執行背景直接燒錄
             avrgirl.flash(hexBuffer, (err) => {
+                // 🛠️ 燒錄一結束，立刻把瀏覽器的功能還原（良好的程式碼習慣）
+                navigator.serial.requestPort = originalRequestPort;
+
                 actionBtn.disabled = false;
+                portBtn.disabled = false;
+                
                 if (err) {
                     logStatus.innerText = "❌ 燒錄失敗: " + err.message;
                     logStatus.style.color = "red";
                 } else {
-                    logStatus.innerText = "🎉 【完美成功】程式已成功燒錄！\n你手邊的 Arduino Uno 應該已經開始高速閃爍囉！";
+                    logStatus.innerText = "🎉 【完美成功】程式已自動背景燒錄完成！\nArduino Uno 已經開始運行新程式囉！";
                     logStatus.style.color = "green";
                 }
             });
 
         } catch (error) {
+            // 發生錯誤也要記得還原
+            navigator.serial.requestPort = originalRequestPort;
             actionBtn.disabled = false;
+            portBtn.disabled = false;
             logStatus.innerText = "❌ 錯誤: " + error.message;
             logStatus.style.color = "red";
         }
