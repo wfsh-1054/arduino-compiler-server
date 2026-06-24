@@ -7,8 +7,6 @@ import https from 'https'; // 🟢 1. 引入 Node.js 內建的 HTTPS 模組
 
 const app = express();
 app.use(express.json());
-app.use(express.static('public'));
-
 // ==================================================
 // 隔離環境設定：強迫 arduino-cli 將所有檔案裝在專案資料夾內
 // ==================================================
@@ -215,9 +213,18 @@ app.post('/api/libraries/install', (req: Request, res: Response) => {
     });
 });
 
-app.get('/', (req: Request, res: Response) => {
-    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
-});
+// ==================================================
+
+const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
+const publicDir = path.join(__dirname, '..', 'public');
+
+if (fs.existsSync(frontendDist)) {
+    console.log(`Serving static files from React dist: ${frontendDist}`);
+    app.use(express.static(frontendDist));
+} else {
+    console.log(`Serving static files from legacy public dir: ${publicDir}`);
+    app.use(express.static(publicDir));
+}
 
 // ==================================================
 // 🔐 伺服器啟動設定 (支援 HTTPS 與 HTTP 回退機制)

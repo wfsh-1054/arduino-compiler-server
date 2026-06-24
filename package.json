@@ -6,7 +6,11 @@
   "scripts": {
     "postinstall": "npm run setup",
     "setup": "node scripts/setup.js",
-    "dev": "ts-node src/server.ts",
+    "dev:backend": "ts-node src/server.ts",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build:frontend": "cd frontend && npm run build",
+    "build": "npm run build:frontend",
     "test": "echo \"Error: no test specified\" && exit 1",
     "cert": "cross-env MSYS_NO_PATHCONV=1 \"C:\\Program Files\\Git\\usr\\bin\\openssl.exe\" req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout server.key -out server.crt -subj \"/CN=arduino-ide.local\""
   },
@@ -20,6 +24,7 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^26.0.0",
+    "concurrently": "^10.0.3",
     "cross-env": "^10.1.0",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
