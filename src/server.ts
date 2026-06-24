@@ -12,14 +12,15 @@ app.use(express.static('public'));
 // ==================================================
 // 隔離環境設定：強迫 arduino-cli 將所有檔案裝在專案資料夾內
 // ==================================================
-const ARDUINO_DATA_DIR = path.join(__dirname, '..', '.arduino-data', 'data');
+const ARDUINO_DATA_DIR = path.join(__dirname, '..', '.arduino-data');
 const ARDUINO_USER_DIR = path.join(__dirname, '..', '.arduino-data', 'user');
 
 fs.mkdirSync(ARDUINO_DATA_DIR, { recursive: true });
 fs.mkdirSync(ARDUINO_USER_DIR, { recursive: true });
 
 function getCliPath() {
-    return process.platform === 'win32' ? `C:\\arduino-tools\\bin\\arduino-cli.exe` : 'arduino-cli';
+    const binDir = path.join(__dirname, '..', 'bin');
+    return path.join(binDir, process.platform === 'win32' ? 'arduino-cli.exe' : 'arduino-cli');
 }
 
 // 封裝執行 arduino-cli 的函式，自動帶入隔離的環境變數
@@ -28,6 +29,7 @@ function execArduinoCli(args: string, callback: (error: any, stdout: string, std
     const cmd = `"${cliPath}" ${args}`;
     const env = {
         ...process.env,
+        ARDUINO_DIRECTORIES_DATA: ARDUINO_DATA_DIR,
         ARDUINO_DATA_DIR,
         ARDUINO_USER_DIR
     };
@@ -94,7 +96,7 @@ app.get('/api/system/init', (req: Request, res: Response) => {
     res.setHeader('Connection', 'keep-alive');
     
     const cliPath = getCliPath();
-    const env = { ...process.env, ARDUINO_DATA_DIR, ARDUINO_USER_DIR };
+    const env = { ...process.env, ARDUINO_DIRECTORIES_DATA: ARDUINO_DATA_DIR, ARDUINO_DATA_DIR, ARDUINO_USER_DIR };
 
     res.write(`data: ⏳ 開始更新核心庫索引...\n\n`);
     
@@ -157,7 +159,7 @@ app.post('/api/boards/install', (req: Request, res: Response) => {
     res.setHeader('Connection', 'keep-alive');
     
     const cliPath = getCliPath();
-    const env = { ...process.env, ARDUINO_DATA_DIR, ARDUINO_USER_DIR };
+    const env = { ...process.env, ARDUINO_DIRECTORIES_DATA: ARDUINO_DATA_DIR, ARDUINO_DATA_DIR, ARDUINO_USER_DIR };
     const additionalUrls = `--additional-urls "https://espressif.github.io/arduino-esp32/package_esp32_index.json"`;
     
     res.write(`data: ⏳ 更新索引清單中...\n\n`);
