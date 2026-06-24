@@ -43,29 +43,6 @@ function App() {
   // =====================================
   // API 互動：編譯與安裝
   // =====================================
-  const handleSystemInit = async () => {
-    addLog("[SYS] ⚡ 正在背景初始化系統並安裝 AVR 核心，這可能需要幾分鐘...")
-    try {
-      const res = await fetch('/api/system/init')
-      const reader = res.body?.getReader()
-      const decoder = new TextDecoder()
-      while (reader) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const chunk = decoder.decode(value)
-        chunk.split('\n').forEach(line => {
-          if (line.startsWith('data: ')) {
-            const text = line.substring(6)
-            if (text !== '[DONE]') addLog(text)
-          }
-        })
-      }
-      addLog("[SYS] ✅ 系統初始化完成！")
-    } catch (err: any) {
-      addLog(`[ERR] 系統初始化失敗: ${err.message}`)
-    }
-  }
-
   const handleInstallLib = async () => {
     if (!libSearch) return
     addLog(`[LIB] ⏳ 正在背景下載安裝函式庫: ${libSearch}...`)
@@ -241,13 +218,6 @@ function App() {
             <Cpu className="text-primary w-6 h-6" />
             <h1 className="font-bold text-lg tracking-wide">Antigravity IDE</h1>
           </div>
-          <button 
-            onClick={handleSystemInit}
-            title="系統初始化 (System Init)"
-            className="p-2 bg-secondary hover:bg-secondary/80 rounded-md transition-colors text-secondary-foreground"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
