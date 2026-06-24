@@ -52,16 +52,17 @@ docker compose up --build -d
 
 啟動後，開啟瀏覽器並前往：`https://localhost:3000`
 
-### 本地直接啟動
+### 本地直接啟動 (Node.js)
 
-若你已經在系統中安裝了 Node.js 及 `arduino-cli`，可以依照以下步驟啟動：
+透過內建的自動化腳本，您**不需**事先安裝 `arduino-cli`，只要有 Node.js 環境即可無縫啟動：
 
-1. 安裝依賴套件：
+1. **安裝依賴與自動化環境建置**：
    ```bash
    npm install
    ```
+   *(註：此指令會自動觸發 `postinstall` 腳本，為您的作業系統下載對應的 `arduino-cli` 工具，並自動安裝 `arduino:avr` 核心，需時數分鐘請耐心等待。)*
 
-2. 啟動開發伺服器：
+2. **啟動開發伺服器**：
    ```bash
    npm run dev
    ```

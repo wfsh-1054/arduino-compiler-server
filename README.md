@@ -52,16 +52,17 @@ docker compose up --build -d
 
 Once started, open your browser and navigate to: `https://localhost:3000`
 
-### Run Locally
+### Run Locally (Node.js)
 
-If you already have Node.js and `arduino-cli` installed on your system, you can start the service by following these steps:
+Thanks to the built-in automation script, you **do not** need to pre-install `arduino-cli`. As long as you have a Node.js environment, you can start seamlessly:
 
-1. Install dependencies:
+1. **Install dependencies and auto-setup the environment**:
    ```bash
    npm install
    ```
+   *(Note: This command automatically triggers the `postinstall` script, which downloads the appropriate `arduino-cli` tool for your OS and automatically installs the `arduino:avr` core. This might take a few minutes, please be patient.)*
 
-2. Start the development server:
+2. **Start the development server**:
    ```bash
    npm run dev
    ```

@@ -8,15 +8,21 @@
     
     <style>
         body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
-        .container { max-width: 600px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        textarea { width: 100%; font-family: monospace; font-size: 14px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
-        button { color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; margin-top: 10px; margin-right: 10px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        textarea { width: 100%; font-family: monospace; font-size: 14px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { color: white; border: none; padding: 8px 16px; font-size: 14px; border-radius: 4px; cursor: pointer; margin-top: 5px; margin-right: 5px; }
+        input[type="text"], select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
         .btn-port { background: #e07a5f; }
         .btn-port:hover { background: #c9644b; }
         .btn-compile { background: #00878f; }
         .btn-compile:hover { background: #00666c; }
+        .btn-action { background: #457b9d; }
+        .btn-action:hover { background: #1d3557; }
         button:disabled { background: #ccc; cursor: not-allowed; }
-        pre { background: #eee; padding: 10px; border-radius: 4px; max-height: 200px; overflow-y: auto; }
+        pre { background: #eee; padding: 10px; border-radius: 4px; max-height: 150px; overflow-y: auto; font-size: 12px; }
+        .panel { background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #dee2e6; }
+        .panel h3 { margin-top: 0; font-size: 16px; color: #333; }
+        #serialMonitor { background: #1e1e1e; color: #00ff00; height: 200px; overflow-y: auto; padding: 10px; font-family: monospace; border-radius: 4px; margin-top: 10px; white-space: pre-wrap; word-wrap: break-word; }
     </style>
 </head>
 <body>
@@ -25,124 +31,316 @@
     <h2>我的網頁版 Arduino IDE (階段 3 - 終極流暢版)</h2>
     <p>先點擊「選擇連接埠」，之後修改程式碼只需狂按「一鍵編譯並燒錄」即可背景自動化執行：</p>
     
-    <textarea id="codeEditor" rows="12">
+    <div class="panel">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin:0;">系統初始化</h3>
+            <button class="btn-action" id="btnInit" onclick="systemInit()">⚡ 點此執行系統初始化 (安裝 Uno 開發板)</button>
+        </div>
+        <pre id="initLog" style="display:none; background:#333; color:#fff;"></pre>
+    </div>
+
+    <div class="panel">
+        <h3>1. 環境設定</h3>
+        <div>
+            <label>開發板核心: </label>
+            <select id="boardSelect">
+                <option value="uno">Arduino Uno (arduino:avr:uno)</option>
+                <option value="esp32">ESP32 (esp32:esp32:esp32)</option>
+            </select>
+            <button class="btn-action" onclick="loadInstalledBoards()">↻ 重新整理</button>
+            <input type="text" id="installBoardInput" placeholder="例如: esp32:esp32" style="margin-left:10px;">
+            <button class="btn-action" id="btnInstallBoard" onclick="installBoard()">下載安裝開發板</button>
+        </div>
+        <div style="margin-top: 10px;">
+            <label>第三方函式庫: </label>
+            <input type="text" id="installLibInput" placeholder="例如: DHT sensor library">
+            <button class="btn-action" id="btnInstallLib" onclick="installLibrary()">搜尋並安裝</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3>2. 程式碼編輯區</h3>
+        <textarea id="codeEditor" rows="12">
 void setup() {
+  Serial.begin(9600);
   pinMode(13, OUTPUT);
 }
 
 void loop() {
   digitalWrite(13, HIGH);
-  delay(100); 
+  Serial.println("LED ON");
+  delay(1000); 
   digitalWrite(13, LOW);
-  delay(100);
+  Serial.println("LED OFF");
+  delay(1000);
 }</textarea>
+    </div>
 
-    <br>
-    <button id="portBtn" class="btn-port" onclick="selectSerialPort()">🔌 1. 選擇連接埠 (未連接)</button>
-    <button id="actionBtn" class="btn-compile" onclick="compileAndFlash()" disabled>🚀 2. 一鍵編譯並燒錄</button>
-    
-    <h3>執行狀態日誌：</h3>
-    <pre id="logStatus">請先點擊上方橘色按鈕選取你的 Arduino 連接埠...</pre>
+    <div class="panel">
+        <h3>3. 編譯與燒錄</h3>
+        <button id="portBtn" class="btn-port" onclick="selectSerialPort()">🔌 選擇連接埠 (未連接)</button>
+        <button id="actionBtn" class="btn-compile" onclick="compileAndFlash()" disabled>🚀 一鍵編譯並燒錄</button>
+        <button id="monitorBtn" class="btn-action" onclick="toggleSerialMonitor()" disabled>📺 開啟 Serial Monitor</button>
+        
+        <h4 style="margin-bottom:5px;">執行狀態：</h4>
+        <pre id="logStatus">請先選擇上方設定與連接埠...</pre>
+        
+        <div id="serialMonitorContainer" style="display: none;">
+            <h4 style="margin-bottom:5px;">Serial Monitor (Baud: 9600):</h4>
+            <div id="serialMonitor"></div>
+        </div>
+    </div>
 </div>
 
 <script>
-    // 全域變數：保存真正被選中的序列埠物件
     let savedPort = null;
+    let serialReader = null;
+    let keepReading = false;
+    let isMonitorOpen = false;
     
-    // 💾 備份瀏覽器原始的彈窗函式
     const originalRequestPort = navigator.serial.requestPort.bind(navigator.serial);
 
-    // 🎯 1. 選擇連接埠（只會在這裡彈出唯一一次）
-    async function selectSerialPort() {
-        const logStatus = document.getElementById('logStatus');
-        const portBtn = document.getElementById('portBtn');
-        const actionBtn = document.getElementById('actionBtn');
+    // ==========================================
+    // 串流日誌讀取輔助函式
+    // ==========================================
+    async function readStreamLog(response, logElId) {
+        const el = document.getElementById(logElId);
+        el.style.display = "block";
+        el.innerText = "";
+        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
+            for(let line of lines) {
+                if (line.startsWith('data: ')) {
+                    const text = line.substring(6);
+                    if (text === '[DONE]') break;
+                    el.innerText += text + '\n';
+                    el.scrollTop = el.scrollHeight;
+                }
+            }
+        }
+    }
 
+    // ==========================================
+    // API 互動：系統初始化
+    // ==========================================
+    async function systemInit() {
+        const btn = document.getElementById('btnInit');
+        btn.disabled = true;
         try {
-            // 呼叫原始的彈窗，讓使用者選取
+            const res = await fetch('/api/system/init');
+            await readStreamLog(res, 'initLog');
+            logMsg("✅ 系統初始化完成！", "green");
+        } catch (e) {
+            logMsg("❌ 初始化發生異常: " + e.message, "red");
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    // ==========================================
+    // API 互動：開發板與函式庫管理
+    // ==========================================
+    function logMsg(msg, color="black") {
+        const el = document.getElementById('logStatus');
+        el.innerText = msg;
+        el.style.color = color;
+    }
+
+    async function installBoard() {
+        const core = document.getElementById('installBoardInput').value.trim();
+        if(!core) return alert("請輸入 core ID");
+        const btn = document.getElementById('btnInstallBoard');
+        btn.disabled = true;
+        logMsg(`正在背景下載安裝 ${core}...`, "blue");
+        
+        try {
+            const res = await fetch('/api/boards/install', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ core })
+            });
+            await readStreamLog(res, 'initLog');
+            logMsg(`開發板 ${core} 安裝流程結束。`, "green");
+        } catch(e) {
+            logMsg(`安裝發生異常: ${e.message}`, "red");
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    async function installLibrary() {
+        const libName = document.getElementById('installLibInput').value.trim();
+        if(!libName) return alert("請輸入函式庫名稱");
+        const btn = document.getElementById('btnInstallLib');
+        btn.disabled = true;
+        logMsg(`正在背景下載安裝函式庫 ${libName}...`, "blue");
+        
+        try {
+            const res = await fetch('/api/libraries/install', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ libName })
+            });
+            const data = await res.json();
+            if(data.success) {
+                logMsg(`函式庫 ${libName} 安裝成功！\n${data.message}`, "green");
+            } else {
+                logMsg(`安裝失敗: ${data.error}`, "red");
+            }
+        } catch(e) {
+            logMsg(`安裝發生異常: ${e}`, "red");
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    // 🎯 1. 選擇連接埠
+    async function selectSerialPort() {
+        try {
+            if (savedPort) {
+                // 如果已經開啟，先關閉才能重新選擇
+                await closeSerialPort();
+            }
             savedPort = await originalRequestPort();
             
-            portBtn.innerText = "✅ 1. 連接埠已就緒";
-            portBtn.style.background = "#2a9d8f";
-            actionBtn.disabled = false; 
+            document.getElementById('portBtn').innerText = "✅ 連接埠已就緒";
+            document.getElementById('portBtn').style.background = "#2a9d8f";
+            document.getElementById('actionBtn').disabled = false; 
+            document.getElementById('monitorBtn').disabled = false;
             
-            logStatus.innerText = "👍 成功綁定 Arduino！\n接下來無論修改幾次程式碼，直接點擊「一鍵編譯並燒錄」即可背景全自動上傳！";
-            logStatus.style.color = "green";
+            logMsg("👍 成功綁定 Arduino！可點擊編譯或開啟 Serial Monitor。", "green");
         } catch (error) {
-            logStatus.innerText = "❌ 未選取連接埠: " + error.message;
-            logStatus.style.color = "red";
+            logMsg("❌ 未選取連接埠: " + error.message, "red");
         }
     }
 
     // 🎯 2. 背景編譯與全自動無彈窗燒錄
     async function compileAndFlash() {
-        const code = document.getElementById('codeEditor').value;
-        const logStatus = document.getElementById('logStatus');
-        const actionBtn = document.getElementById('actionBtn');
-        const portBtn = document.getElementById('portBtn');
+        if (!savedPort) return logMsg("❌ 請先選擇連接埠！", "red");
         
-        if (!savedPort) {
-            logStatus.innerText = "❌ 錯誤: 請先選擇連接埠！";
-            logStatus.style.color = "red";
-            return;
+        const code = document.getElementById('codeEditor').value;
+        const boardType = document.getElementById('boardSelect').value;
+        
+        // 燒錄前必須先關閉 Serial Monitor 的占用
+        if (isMonitorOpen) {
+            await closeSerialPort();
+            document.getElementById('serialMonitorContainer').style.display = "none";
+            document.getElementById('monitorBtn').innerText = "📺 開啟 Serial Monitor";
+            isMonitorOpen = false;
         }
 
-        try {
-            actionBtn.disabled = true;
-            portBtn.disabled = true;
-            logStatus.innerText = "⏳ 正在將程式碼傳送至 TypeScript 後端編譯中...";
-            logStatus.style.color = "blue";
+        document.getElementById('actionBtn').disabled = true;
+        logMsg("⏳ 正在將程式碼傳送至後端編譯中...", "blue");
 
-            // 一、發送 POST 請求給 Express 後端編譯
+        try {
             const response = await fetch('/api/compile', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ boardType: 'uno', code: code })
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ boardType, code })
             });
 
             if (!response.ok) {
                 const errResult = await response.json();
-                throw new Error(errResult.error || "編譯伺服器發生錯誤");
+                throw new Error(errResult.error || "編譯失敗");
             }
 
-            // 二、接收編譯好的二進位 HEX 資料
-            logStatus.innerText = "🎯 雲端編譯成功！開始背景自動寫入晶片...";
-            logStatus.style.color = "orange";
+            logMsg("🎯 編譯成功！開始背景寫入晶片...", "orange");
             const hexBuffer = await response.arrayBuffer();
 
-            // 三、🔥 【黑魔法核心】：短暫劫持瀏覽器的 requestPort 函式
-            // 當 avrgirl 內部企圖彈窗時，我們會強行攔截並直接把先前存好的 savedPort 丟給它！
-            navigator.serial.requestPort = async function() {
-                return savedPort;
-            };
+            // 劫持 requestPort 給 avrgirl 使用
+            navigator.serial.requestPort = async () => savedPort;
 
-            // 四、初始化 Avrgirl 燒錄器
-            const avrgirl = new window.AvrgirlArduino({ board: 'uno', debug: false });
+            // 注意：avrgirl 僅支援 AVR 系列 (如 uno)，ESP32 會失敗
+            const avrgirl = new window.AvrgirlArduino({ board: boardType === 'esp32' ? 'uno' : 'uno', debug: false });
             
-            // 五、執行背景直接燒錄
             avrgirl.flash(hexBuffer, (err) => {
-                // 🛠️ 燒錄一結束，立刻把瀏覽器的功能還原（良好的程式碼習慣）
                 navigator.serial.requestPort = originalRequestPort;
-
-                actionBtn.disabled = false;
-                portBtn.disabled = false;
+                document.getElementById('actionBtn').disabled = false;
                 
                 if (err) {
-                    logStatus.innerText = "❌ 燒錄失敗: " + err.message;
-                    logStatus.style.color = "red";
+                    logMsg("❌ 燒錄失敗: " + err.message + "\n(註: 目前網頁端直接燒錄僅支援 AVR 系列如 Uno)", "red");
                 } else {
-                    logStatus.innerText = "🎉 【完美成功】程式已自動背景燒錄完成！\nArduino Uno 已經開始運行新程式囉！";
-                    logStatus.style.color = "green";
+                    logMsg("🎉 程式已自動背景燒錄完成！\n你可以開啟 Serial Monitor 查看輸出。", "green");
                 }
             });
 
         } catch (error) {
-            // 發生錯誤也要記得還原
             navigator.serial.requestPort = originalRequestPort;
-            actionBtn.disabled = false;
-            portBtn.disabled = false;
-            logStatus.innerText = "❌ 錯誤: " + error.message;
-            logStatus.style.color = "red";
+            document.getElementById('actionBtn').disabled = false;
+            logMsg("❌ 錯誤: " + error.message, "red");
+        }
+    }
+
+    // ==========================================
+    // Serial Monitor 邏輯
+    // ==========================================
+    async function toggleSerialMonitor() {
+        if (!savedPort) return alert("請先選擇連接埠");
+        const container = document.getElementById('serialMonitorContainer');
+        const btn = document.getElementById('monitorBtn');
+
+        if (isMonitorOpen) {
+            await closeSerialPort();
+            container.style.display = "none";
+            btn.innerText = "📺 開啟 Serial Monitor";
+            isMonitorOpen = false;
+            logMsg("已關閉 Serial Monitor。", "black");
+        } else {
+            try {
+                await savedPort.open({ baudRate: 9600 });
+                container.style.display = "block";
+                document.getElementById('serialMonitor').innerText = ""; // 清空
+                btn.innerText = "🛑 關閉 Serial Monitor";
+                isMonitorOpen = true;
+                keepReading = true;
+                logMsg("Serial Monitor 已開啟 (Baud: 9600)。", "blue");
+                readSerialData();
+            } catch (e) {
+                logMsg("開啟 Serial Monitor 失敗: " + e.message, "red");
+            }
+        }
+    }
+
+    async function readSerialData() {
+        const textDecoder = new TextDecoderStream();
+        const readableStreamClosed = savedPort.readable.pipeTo(textDecoder.writable);
+        serialReader = textDecoder.readable.getReader();
+        const monitorEl = document.getElementById('serialMonitor');
+
+        try {
+            while (true) {
+                const { value, done } = await serialReader.read();
+                if (done) {
+                    serialReader.releaseLock();
+                    break;
+                }
+                if (value) {
+                    monitorEl.appendChild(document.createTextNode(value));
+                    monitorEl.scrollTop = monitorEl.scrollHeight;
+                }
+            }
+        } catch (error) {
+            console.warn("Serial read error:", error);
+        } finally {
+            serialReader.releaseLock();
+        }
+    }
+
+    async function closeSerialPort() {
+        if (serialReader) {
+            keepReading = false;
+            await serialReader.cancel();
+            serialReader = null;
+        }
+        if (savedPort && savedPort.readable) {
+            try {
+                await savedPort.close();
+            } catch(e) {}
         }
     }
 </script>

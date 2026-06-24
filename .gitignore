@@ -14,3 +14,8 @@ server.crt
 # 排除系統暫存檔
 .DS_Store
 Thumbs.db
+
+# 排除 Arduino 隔離的設定與資料檔
+.arduino-data/
+bin/
+tmp_workspace/

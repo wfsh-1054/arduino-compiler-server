@@ -7,3 +7,7 @@ services:
     restart: always
     volumes:
       - ./tmp_workspace:/app/workspace
+      - arduino_data:/app/.arduino-data
+
+volumes:
+  arduino_data:
