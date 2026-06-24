@@ -95,6 +95,7 @@ void loop() {
 <script>
     let savedPort = null;
     let serialReader = null;
+    let readableStreamClosed = null;
     let keepReading = false;
     let isMonitorOpen = false;
     
@@ -308,7 +309,7 @@ void loop() {
 
     async function readSerialData() {
         const textDecoder = new TextDecoderStream();
-        const readableStreamClosed = savedPort.readable.pipeTo(textDecoder.writable);
+        readableStreamClosed = savedPort.readable.pipeTo(textDecoder.writable);
         serialReader = textDecoder.readable.getReader();
         const monitorEl = document.getElementById('serialMonitor');
 
@@ -335,9 +336,10 @@ void loop() {
         if (serialReader) {
             keepReading = false;
             await serialReader.cancel();
+            await readableStreamClosed.catch(() => {}); // Wait for pipeTo to release the lock
             serialReader = null;
         }
-        if (savedPort && savedPort.readable) {
+        if (savedPort) {
             try {
                 await savedPort.close();
             } catch(e) {}
