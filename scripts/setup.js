@@ -56,8 +56,15 @@ try {
     const cliPath = path.join(binDir, cliExecutable);
     const dataDir = path.join(__dirname, '..', '.arduino-data');
     
-    execSync(`"${cliPath}" --data-dir "${dataDir}" core update-index`, { stdio: 'inherit' });
-    execSync(`"${cliPath}" --data-dir "${dataDir}" core install arduino:avr`, { stdio: 'inherit' });
+    // Use environment variables instead of --data-dir flag for modern arduino-cli
+    const env = {
+        ...process.env,
+        ARDUINO_DIRECTORIES_DATA: dataDir,
+        ARDUINO_DATA_DIR: dataDir
+    };
+    
+    execSync(`"${cliPath}" core update-index`, { stdio: 'inherit', env });
+    execSync(`"${cliPath}" core install arduino:avr`, { stdio: 'inherit', env });
 
     console.log('✅ arduino-cli and avr:uno setup completed successfully!');
 } catch (error) {
