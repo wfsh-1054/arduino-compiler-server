@@ -1,6 +1,7 @@
 /// <reference types="@types/dom-serial" />
 import { useState, useRef, useEffect } from 'react'
 import { Terminal, Monitor, Cpu, Zap, RefreshCw, Plug, Loader2 } from 'lucide-react'
+import Editor from '@monaco-editor/react'
 
 // 給 window.AvrgirlArduino 以及 navigator.serial, makerApi 加上 TypeScript 型別略過
 declare global {
@@ -19,11 +20,11 @@ function App() {
   const [isMonitorOpen, setIsMonitorOpen] = useState(false)
   const [libSearch, setLibSearch] = useState('')
   const [portRequestList, setPortRequestList] = useState<any[] | null>(null)
+  const [connectedPortName, setConnectedPortName] = useState<string>('')
 
   // Web Serial 狀態參照
   const portRef = useRef<any>(null)
   const readerRef = useRef<any>(null)
-  const pipeClosedRef = useRef<Promise<void> | null>(null)
   const originalRequestPortRef = useRef<any>(null)
   const terminalBottomRef = useRef<HTMLDivElement>(null)
 
@@ -115,6 +116,77 @@ function App() {
   }
 
   // =====================================
+  // Monaco Editor 補全與設定
+  // =====================================
+  const handleEditorDidMount = (editor: any, monaco: any) => {
+    // 編輯器載入後自動聚焦，提升使用者體驗
+    editor.focus();
+
+    monaco.languages.registerCompletionItemProvider('cpp', {
+      provideCompletionItems: (model: any, position: any) => {
+        const word = model.getWordUntilPosition(position);
+        const range = {
+          startLineNumber: position.lineNumber,
+          endLineNumber: position.lineNumber,
+          startColumn: word.startColumn,
+          endColumn: word.endColumn
+        };
+        const suggestions = [
+          {
+            label: 'setup',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: 'void setup() {\n  $0\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Arduino setup() function',
+            range: range
+          },
+          {
+            label: 'loop',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: 'void loop() {\n  $0\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Arduino loop() function',
+            range: range
+          },
+          {
+            label: 'pinMode',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'pinMode(${1:pin}, ${2:OUTPUT});',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Configures the specified pin to behave either as an input or an output.',
+            range: range
+          },
+          {
+            label: 'digitalWrite',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'digitalWrite(${1:pin}, ${2:HIGH});',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Write a HIGH or a LOW value to a digital pin.',
+            range: range
+          },
+          {
+            label: 'Serial.println',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'Serial.println(${1:"text"});',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Prints data to the serial port as human-readable ASCII text followed by a carriage return character.',
+            range: range
+          },
+          {
+            label: 'delay',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'delay(${1:1000});',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Pauses the program for the amount of time (in milliseconds).',
+            range: range
+          }
+        ];
+        return { suggestions };
+      }
+    });
+  };
+
+  // =====================================
   // API 互動：編譯與安裝
   // =====================================
   const handleInstallLib = async () => {
@@ -152,14 +224,17 @@ function App() {
   // =====================================
   const closeSerialPort = async () => {
     if (readerRef.current) {
-      await readerRef.current.cancel()
-      await pipeClosedRef.current?.catch(() => {}) // 等待 Pipe 釋放 Lock
+      try {
+        await readerRef.current.cancel()
+      } catch (e) {}
       readerRef.current = null
     }
     if (portRef.current) {
       try {
         await portRef.current.close()
-      } catch (e) {}
+      } catch (e: any) {
+        console.error("Force close error:", e.message)
+      }
     }
   }
 
@@ -189,25 +264,28 @@ function App() {
 
   const readSerialData = async () => {
     if (!portRef.current) return
-    const textDecoder = new TextDecoderStream()
-    pipeClosedRef.current = portRef.current.readable.pipeTo(textDecoder.writable)
-    readerRef.current = textDecoder.readable.getReader()
+    
+    // 直接從原生的 readable 取得 reader，避免 pipeTo 造成的卡死問題
+    readerRef.current = portRef.current.readable.getReader()
+    const decoder = new TextDecoder()
 
     try {
       while (true) {
         const { value, done } = await readerRef.current.read()
         if (done) {
-          readerRef.current.releaseLock()
           break
         }
         if (value) {
-          addLog(`[SERIAL] ${value.trim()}`)
+          const text = decoder.decode(value, { stream: true })
+          addLog(`[SERIAL] ${text.trim()}`)
         }
       }
     } catch (error) {
       console.warn("Serial read error:", error)
     } finally {
-      if (readerRef.current) readerRef.current.releaseLock()
+      if (readerRef.current) {
+        readerRef.current.releaseLock()
+      }
     }
   }
 
@@ -244,6 +322,24 @@ function App() {
       addLog("[SYS] 暫停 Serial Monitor 以進行燒錄...")
       await closeSerialPort()
       setIsMonitorOpen(false)
+      
+      // 在 Windows 環境下，關閉 COM Port 到底層釋放 Handle 通常需要一點時間
+      // 加入 1.5 秒的延遲，確保 arduino-cli 能夠成功取得 Port 的控制權
+      await new Promise(resolve => setTimeout(resolve, 1500))
+    } else {
+      // 🐛 [修復 Windows CH340 驅動程式未初始化 Bug]
+      // 如果使用者沒開過 Monitor 就直接燒錄，某些低價晶片 (CH340) 的驅動程式狀態會是空的，
+      // 這會導致底層的 arduino-cli 報錯 `cannot set com-state`。
+      // 解法：我們用 Web Serial API 短暫地打開再關閉它，強制喚醒並初始化作業系統的 Port 狀態。
+      if (portRef.current) {
+        try {
+          await portRef.current.open({ baudRate: 9600 })
+          await portRef.current.close()
+          await new Promise(resolve => setTimeout(resolve, 800)) // 等待系統釋放
+        } catch (e) {
+          // 如果出錯就忽略，代表可能已經有其他狀態了
+        }
+      }
     }
 
     setIsCompiling(true)
@@ -255,9 +351,24 @@ function App() {
       if (window.makerApi) {
          // Electron IPC 模式
          const res = await window.makerApi.compile(code, boardType);
-         if (!res.success) throw new Error(res.error);
-         // 將主進程傳來的陣列轉回 ArrayBuffer
-         hexBuffer = new Uint8Array(res.fileBuffer).buffer;
+        if (!res.success) throw new Error(res.error);
+        
+        // 將主進程傳來的陣列轉回 ArrayBuffer
+        hexBuffer = new Uint8Array(res.fileBuffer).buffer;
+
+        addLog(`[BUILD] 🎯 編譯成功！開始將韌體燒錄至 ${connectedPortName}...`);
+
+        // 在 Electron 模式下，直接使用後端的原生 arduino-cli upload 進行燒錄！
+        // 速度極快且 100% 穩定，完全避開 Web Serial API 的卡 Port 問題。
+        const uploadRes = await window.makerApi.upload(res.fileBuffer, boardType, connectedPortName, res.ext);
+        setIsCompiling(false);
+
+        if (!uploadRes.success) {
+          throw new Error(uploadRes.error);
+        }
+
+        addLog("[FLASH] 🎉 程式已自動由原生引擎燒錄完成！您可以再次開啟 Monitor 查看輸出。");
+        return; // 結束，不往下執行 avrgirl
       } else {
          // Web 模式
          const response = await fetch('/api/compile', {
@@ -319,6 +430,7 @@ function App() {
                     key={port.portId}
                     onClick={() => {
                       window.makerApi.selectSerialPort(port.portId);
+                      setConnectedPortName(port.portName || '');
                       setPortRequestList(null);
                     }}
                     className="w-full text-left px-4 py-3 bg-input/50 hover:bg-primary/20 hover:border-primary/50 border border-border rounded-lg transition-all text-sm group"
@@ -460,12 +572,26 @@ function App() {
                </div>
                <span className="text-xs text-gray-400 font-mono ml-4">sketch.ino</span>
             </div>
-            <textarea 
-              className="w-full flex-1 bg-transparent p-4 font-mono text-[14px] leading-relaxed text-[#d4d4d4] resize-none focus:outline-none selection:bg-[#264f78]"
-              value={code}
-              onChange={e => setCode(e.target.value)}
-              spellCheck="false"
-            />
+            <div className="flex-1 overflow-hidden">
+              <Editor
+                height="100%"
+                language="cpp"
+                theme="vs-dark"
+                value={code}
+                onChange={(val) => setCode(val || '')}
+                onMount={handleEditorDidMount}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  fontFamily: "'Courier New', Consolas, monospace",
+                  scrollBeyondLastLine: false,
+                  smoothScrolling: true,
+                  cursorBlinking: "smooth",
+                  formatOnPaste: true,
+                  padding: { top: 16 }
+                }}
+              />
+            </div>
           </div>
 
           {/* Terminal */}

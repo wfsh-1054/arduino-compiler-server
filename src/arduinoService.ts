@@ -105,7 +105,33 @@ export async function compileCode(code: string, boardType: 'uno' | 'esp32'): Pro
         return { success: false, error: err.message };
     }
 }
+export async function uploadCode(fileBuffer: Buffer, boardType: 'uno' | 'esp32', portName: string, ext: string): Promise<{ success: boolean, error?: string }> {
+    const buildId = Date.now();
+    const workspaceRoot = process.env.WORKSPACE_DIR || path.join(__dirname, '..', 'tmp_workspace');
+    const uploadDir = path.join(workspaceRoot, `upload_${buildId}`);
+    const binFile = path.join(uploadDir, `firmware.${ext}`);
 
+    let fqbn = 'arduino:avr:uno';
+    if (boardType === 'esp32') {
+        fqbn = 'esp32:esp32:esp32';
+    }
+
+    try {
+        fs.mkdirSync(uploadDir, { recursive: true });
+        fs.writeFileSync(binFile, fileBuffer);
+
+        const uploadArgs = `upload -p "${portName}" --fqbn ${fqbn} --input-file "${binFile}"`;
+        await execArduinoCli(uploadArgs);
+
+        fs.rmSync(uploadDir, { recursive: true, force: true });
+        return { success: true };
+    } catch (err: any) {
+        if (fs.existsSync(uploadDir)) {
+            fs.rmSync(uploadDir, { recursive: true, force: true });
+        }
+        return { success: false, error: err.message };
+    }
+}
 export function initSystem(onProgress: (msg: string) => void): Promise<void> {
     return new Promise((resolve, reject) => {
         onProgress(`⏳ 開始更新核心庫索引...`);

@@ -79,7 +79,8 @@ function createWindow() {
 
 function setupIpcHandlers() {
   // 動態載入編譯過後的服務 (必須在 TypeScript 編譯後執行)
-  const { compileCode, initSystem, getInstalledBoards, installBoard, getInstalledLibraries, installLibrary } = require('./dist/arduinoService.js');
+  const arduinoService = require('./dist/arduinoService.js');
+  const { compileCode, initSystem, getInstalledBoards, installBoard, getInstalledLibraries, installLibrary, uploadCode } = arduinoService;
 
   ipcMain.handle('compile', async (event, { code, boardType }) => {
     const result = await compileCode(code, boardType);
@@ -89,6 +90,11 @@ function setupIpcHandlers() {
         return { success: true, fileBuffer: Array.from(result.fileBuffer), ext: result.ext };
     }
     return { success: false, error: result.error };
+  });
+
+  ipcMain.handle('upload', async (event, { fileBuffer, boardType, portName, ext }) => {
+    const buffer = Buffer.from(fileBuffer);
+    return await uploadCode(buffer, boardType, portName, ext);
   });
   
   ipcMain.handle('get-installed-boards', async () => {

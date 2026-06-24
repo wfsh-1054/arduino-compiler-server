@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('makerApi', {
   // 基礎編譯與取得資訊
   compile: (code, boardType) => ipcRenderer.invoke('compile', { code, boardType }),
+  upload: (fileBuffer, boardType, portName, ext) => ipcRenderer.invoke('upload', { fileBuffer, boardType, portName, ext }),
   getInstalledBoards: () => ipcRenderer.invoke('get-installed-boards'),
   getInstalledLibraries: () => ipcRenderer.invoke('get-installed-libraries'),
   installLibrary: (libName) => ipcRenderer.invoke('install-library', { libName }),
