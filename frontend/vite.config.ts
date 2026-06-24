@@ -7,6 +7,7 @@ const isHttps = fs.existsSync(path.resolve(__dirname, '../server.key'))
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: './',
   plugins: [react()],
   server: {
     proxy: {

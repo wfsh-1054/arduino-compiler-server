@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -13,22 +13,42 @@ function createWindow() {
     height: 800,
     title: "Maker IDE",
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
     }
   });
 
   // 隱藏預設選單列
   mainWindow.setMenuBarVisibility(false);
 
-  // Web Serial API 權限與埠號自動選擇處理
+  // 儲存序列埠選擇的回呼函數
+  let serialPortSelectionCallback = null;
+
+  // Web Serial API 權限與埠號手動選擇處理
   mainWindow.webContents.session.on('select-serial-port', (event, portList, webContents, callback) => {
     event.preventDefault();
-    if (portList && portList.length > 0) {
-      // 自動選擇第一個可用的序列埠
-      callback(portList[0].portId);
-    } else {
-      callback(''); // 沒有可用埠號，取消
+    
+    // 將 callback 存起來，等待前端回傳使用者的選擇
+    serialPortSelectionCallback = callback;
+    
+    // 通知前端彈出選擇視窗，並傳送所有可用的 Port
+    mainWindow.webContents.send('serial-port-request', portList);
+  });
+
+  // 接收前端使用者的選擇
+  ipcMain.on('serial-port-selected', (event, portId) => {
+    if (serialPortSelectionCallback) {
+      serialPortSelectionCallback(portId);
+      serialPortSelectionCallback = null;
+    }
+  });
+
+  // 接收前端使用者的取消
+  ipcMain.on('serial-port-cancelled', (event) => {
+    if (serialPortSelectionCallback) {
+      serialPortSelectionCallback('');
+      serialPortSelectionCallback = null;
     }
   });
 
@@ -42,31 +62,70 @@ function createWindow() {
     return false;
   });
 
-  // 判斷伺服器是否運行在 HTTPS (在打包環境下，extraResources 會放在 process.resourcesPath)
-  const keyPath = app.isPackaged 
-    ? path.join(process.resourcesPath, 'server.key') 
-    : path.join(__dirname, 'server.key');
-  const certPath = app.isPackaged 
-    ? path.join(process.resourcesPath, 'server.crt') 
-    : path.join(__dirname, 'server.crt');
-  const isHttps = fs.existsSync(keyPath) && fs.existsSync(certPath);
-  const baseUrl = isHttps ? 'https://127.0.0.1:3000' : 'http://127.0.0.1:3000';
-
-  // 由於伺服器啟動需要一點時間，我們使用一個簡單的重試機制來載入頁面
-  const loadUrlWithRetry = (url, retries = 10) => {
-    mainWindow.loadURL(url).catch((err) => {
-      if (retries > 0) {
-        setTimeout(() => loadUrlWithRetry(url, retries - 1), 500);
-      } else {
-        console.error('Failed to load local server:', err);
-      }
-    });
-  };
-
-  loadUrlWithRetry(baseUrl);
+  const frontendDistPath = path.join(__dirname, 'frontend', 'dist', 'index.html');
+  
+  if (fs.existsSync(frontendDistPath)) {
+    // 讀取本地打包好的網頁檔
+    mainWindow.loadFile(frontendDistPath);
+  } else {
+    // 開發模式讀取 Vite 伺服器
+    mainWindow.loadURL('http://localhost:5173');
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+}
+
+function setupIpcHandlers() {
+  // 動態載入編譯過後的服務 (必須在 TypeScript 編譯後執行)
+  const { compileCode, initSystem, getInstalledBoards, installBoard, getInstalledLibraries, installLibrary } = require('./dist/arduinoService.js');
+
+  ipcMain.handle('compile', async (event, { code, boardType }) => {
+    const result = await compileCode(code, boardType);
+    // IPC 無法直接傳遞 Buffer，將其轉為 Uint8Array 或讓前端處理
+    if (result.success && result.fileBuffer) {
+        // 將 Buffer 轉為標準的陣列傳給前端
+        return { success: true, fileBuffer: Array.from(result.fileBuffer), ext: result.ext };
+    }
+    return { success: false, error: result.error };
+  });
+  
+  ipcMain.handle('get-installed-boards', async () => {
+    return await getInstalledBoards();
+  });
+
+  ipcMain.handle('get-installed-libraries', async () => {
+    return await getInstalledLibraries();
+  });
+
+  ipcMain.handle('install-library', async (event, { libName }) => {
+    try {
+      const msg = await installLibrary(libName);
+      return { success: true, message: msg };
+    } catch(err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('init-system', async (event) => {
+    try {
+      await initSystem((msg) => event.sender.send('system-progress', msg));
+      event.sender.send('system-progress', '[DONE]');
+    } catch (e) {
+      event.sender.send('system-progress', `[ERR] ${e.message}`);
+      event.sender.send('system-progress', '[DONE]');
+    }
+  });
+
+  ipcMain.handle('install-board', async (event, { core }) => {
+    try {
+      await installBoard(core, (msg) => event.sender.send('system-progress', msg));
+      event.sender.send('system-progress', '[DONE]');
+    } catch (e) {
+      event.sender.send('system-progress', `[ERR] ${e.message}`);
+      event.sender.send('system-progress', '[DONE]');
+    }
   });
 }
 
@@ -75,26 +134,13 @@ app.on('ready', () => {
   process.env.ARDUINO_DATA_DIR = path.join(app.getPath('userData'), '.arduino-data');
   process.env.WORKSPACE_DIR = path.join(app.getPath('userData'), 'tmp_workspace');
   
-  const keyPath = app.isPackaged 
-    ? path.join(process.resourcesPath, 'server.key') 
-    : path.join(__dirname, 'server.key');
-  const certPath = app.isPackaged 
-    ? path.join(process.resourcesPath, 'server.crt') 
-    : path.join(__dirname, 'server.crt');
-
-  // 憑證在打包環境下，將指向外部 resources 目錄以確保正常讀取
-  process.env.SERVER_KEY_PATH = keyPath;
-  process.env.SERVER_CERT_PATH = certPath;
-
-  // 在 Electron 主進程中啟動我們的 Express 伺服器
-  console.log('Starting Express server...');
-  require('./dist/server.js');
-
+  // 建立 IPC 通道
+  setupIpcHandlers();
+  
   createWindow();
 });
 
 app.on('window-all-closed', () => {
-  // 在 Mac 上通常會保留應用程式在 Dock 中
   if (process.platform !== 'darwin') {
     app.quit();
   }

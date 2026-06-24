@@ -2,10 +2,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { Terminal, Monitor, Cpu, Zap, RefreshCw, Plug, Loader2 } from 'lucide-react'
 
-// 給 window.AvrgirlArduino 以及 navigator.serial 加上 TypeScript 型別略過
+// 給 window.AvrgirlArduino 以及 navigator.serial, makerApi 加上 TypeScript 型別略過
 declare global {
   interface Window {
     AvrgirlArduino: any;
+    makerApi?: any;
   }
 }
 
@@ -17,6 +18,7 @@ function App() {
   const [isCompiling, setIsCompiling] = useState(false)
   const [isMonitorOpen, setIsMonitorOpen] = useState(false)
   const [libSearch, setLibSearch] = useState('')
+  const [portRequestList, setPortRequestList] = useState<any[] | null>(null)
 
   // Web Serial 狀態參照
   const portRef = useRef<any>(null)
@@ -35,33 +37,56 @@ function App() {
     const checkAndInitSystem = async () => {
       try {
         setLogs(prev => [...prev, "[SYS] 🔍 檢查編譯環境中..."]);
-        const res = await fetch('/api/boards/installed');
-        if (!res.ok) {
-          setLogs(prev => [...prev, `[ERR] 檢查系統環境失敗: 伺服器狀態 ${res.status}`]);
-          return;
+        
+        let platforms;
+        if (window.makerApi) {
+          // Electron IPC 模式
+          const data = await window.makerApi.getInstalledBoards();
+          platforms = data?.platforms;
+        } else {
+          // Web API 模式
+          const res = await fetch('/api/boards/installed');
+          if (!res.ok) throw new Error(`伺服器狀態 ${res.status}`);
+          const data = await res.json();
+          platforms = data?.data?.platforms;
         }
-        const data = await res.json();
         
         // 檢查是否已經安裝 arduino:avr
-        const hasAvr = data.data && data.data.platforms && data.data.platforms.some((platform: any) => platform.ID === 'arduino:avr');
+        const hasAvr = platforms && platforms.some((platform: any) => platform.ID === 'arduino:avr');
         
         if (!hasAvr) {
           setLogs(prev => [...prev, "[SYS] 🚀 偵測到初次啟動，準備在背景下載核心編譯檔案 (首次下載約需數分鐘)..."]);
-          const eventSource = new EventSource('/api/system/init');
-          eventSource.onmessage = (e) => {
-            if (e.data === '[DONE]') {
-              eventSource.close();
-              setLogs(prev => [...prev, "[SYS] 🎉 核心編譯檔案下載與安裝完成！現在可以開始編譯了。"]);
-            } else if (e.data.startsWith('[ERR]')) {
-              setLogs(prev => [...prev, e.data]);
-            } else {
-              setLogs(prev => [...prev, `[SYS] ${e.data}`]);
-            }
-          };
-          eventSource.onerror = () => {
-            eventSource.close();
-            setLogs(prev => [...prev, "[SYS] ❌ 系統初始化連線發生異常，請重試"]);
-          };
+          
+          if (window.makerApi) {
+             // Electron IPC 模式監聽進度
+             window.makerApi.onProgress((msg: string) => {
+               if (msg === '[DONE]') {
+                 setLogs(prev => [...prev, "[SYS] 🎉 核心編譯檔案下載與安裝完成！現在可以開始編譯了。"]);
+               } else if (msg.startsWith('[ERR]')) {
+                 setLogs(prev => [...prev, msg]);
+               } else {
+                 setLogs(prev => [...prev, `[SYS] ${msg}`]);
+               }
+             });
+             await window.makerApi.initSystem();
+          } else {
+             // Web Server 模式 (SSE)
+             const eventSource = new EventSource('/api/system/init');
+             eventSource.onmessage = (e) => {
+               if (e.data === '[DONE]') {
+                 eventSource.close();
+                 setLogs(prev => [...prev, "[SYS] 🎉 核心編譯檔案下載與安裝完成！現在可以開始編譯了。"]);
+               } else if (e.data.startsWith('[ERR]')) {
+                 setLogs(prev => [...prev, e.data]);
+               } else {
+                 setLogs(prev => [...prev, `[SYS] ${e.data}`]);
+               }
+             };
+             eventSource.onerror = () => {
+               eventSource.close();
+               setLogs(prev => [...prev, "[SYS] ❌ 系統初始化連線發生異常，請重試"]);
+             };
+          }
         } else {
           setLogs(prev => [...prev, "[SYS] ✅ 系統核心已準備就緒，可立即編譯。"]);
         }
@@ -71,6 +96,13 @@ function App() {
     };
 
     checkAndInitSystem();
+
+    // 監聽來自 Electron 的 Serial Port 選擇請求
+    if (window.makerApi) {
+      window.makerApi.onSerialPortRequest((ports: any[]) => {
+        setPortRequestList(ports);
+      });
+    }
   }, [])
 
   useEffect(() => {
@@ -89,16 +121,26 @@ function App() {
     if (!libSearch) return
     addLog(`[LIB] ⏳ 正在背景下載安裝函式庫: ${libSearch}...`)
     try {
-      const res = await fetch('/api/libraries/install', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ libName: libSearch })
-      })
-      const data = await res.json()
-      if (data.success) {
+      let success = false, errorMsg = '';
+      if (window.makerApi) {
+        const res = await window.makerApi.installLibrary(libSearch);
+        success = res.success;
+        errorMsg = res.error;
+      } else {
+        const res = await fetch('/api/libraries/install', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ libName: libSearch })
+        })
+        const data = await res.json()
+        success = data.success;
+        errorMsg = data.error;
+      }
+
+      if (success) {
         addLog(`[LIB] ✅ 函式庫 ${libSearch} 安裝成功！`)
       } else {
-        addLog(`[ERR] 函式庫安裝失敗: ${data.error}`)
+        addLog(`[ERR] 函式庫安裝失敗: ${errorMsg}`)
       }
     } catch (e: any) {
       addLog(`[ERR] 發生異常: ${e.message}`)
@@ -208,26 +250,34 @@ function App() {
     addLog("[BUILD] ⏳ 正在將程式碼傳送至後端編譯中...")
 
     try {
-      const response = await fetch('/api/compile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ boardType, code })
-      })
-
-      if (!response.ok) {
-        const errText = await response.text()
-        let errMsg = errText || "伺服器無回應或發生未知錯誤"
-        try {
-          const errJson = JSON.parse(errText)
-          if (errJson.error) errMsg = errJson.error
-        } catch (e) {
-          // 若不是 JSON，保留原始 text 作為錯誤訊息
-        }
-        throw new Error(`HTTP ${response.status}: ${errMsg}`)
+      let hexBuffer: ArrayBuffer;
+      
+      if (window.makerApi) {
+         // Electron IPC 模式
+         const res = await window.makerApi.compile(code, boardType);
+         if (!res.success) throw new Error(res.error);
+         // 將主進程傳來的陣列轉回 ArrayBuffer
+         hexBuffer = new Uint8Array(res.fileBuffer).buffer;
+      } else {
+         // Web 模式
+         const response = await fetch('/api/compile', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ boardType, code })
+         })
+         if (!response.ok) {
+           const errText = await response.text()
+           let errMsg = errText || "伺服器無回應或發生未知錯誤"
+           try {
+             const errJson = JSON.parse(errText)
+             if (errJson.error) errMsg = errJson.error
+           } catch (e) { }
+           throw new Error(`HTTP ${response.status}: ${errMsg}`)
+         }
+         hexBuffer = await response.arrayBuffer();
       }
 
       addLog("[BUILD] 🎯 編譯成功！開始背景寫入晶片...")
-      const hexBuffer = await response.arrayBuffer()
 
       // 劫持 requestPort 讓 avrgirl 直接使用我們已經選好的 port
       navigator.serial.requestPort = async () => portRef.current
@@ -253,6 +303,51 @@ function App() {
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
       
+      {/* Port Selection Modal */}
+      {portRequestList && (
+        <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-card border border-border p-6 rounded-xl shadow-2xl w-96 space-y-4">
+            <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <Plug className="w-5 h-5 text-primary" /> Select a Serial Port
+            </h3>
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+              {portRequestList.length === 0 ? (
+                <div className="text-sm text-muted-foreground p-2 text-center">No ports found. Please connect your device.</div>
+              ) : (
+                portRequestList.map(port => (
+                  <button
+                    key={port.portId}
+                    onClick={() => {
+                      window.makerApi.selectSerialPort(port.portId);
+                      setPortRequestList(null);
+                    }}
+                    className="w-full text-left px-4 py-3 bg-input/50 hover:bg-primary/20 hover:border-primary/50 border border-border rounded-lg transition-all text-sm group"
+                  >
+                    <div className="font-medium text-foreground group-hover:text-primary transition-colors flex items-center justify-between">
+                      <span>{port.displayName || 'Serial Device'}</span>
+                      <span className="text-xs font-mono text-muted-foreground group-hover:text-primary/70 bg-background/50 px-2 py-0.5 rounded">
+                        {port.portName || `ID: ${port.portId}`}
+                      </span>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+            <div className="flex justify-end pt-2">
+              <button 
+                onClick={() => {
+                  window.makerApi.cancelSerialPort();
+                  setPortRequestList(null);
+                }}
+                className="px-4 py-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-md text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sidebar */}
       <div className="w-80 border-r border-border bg-card flex flex-col">
         <div className="p-4 border-b border-border flex items-center justify-between">
