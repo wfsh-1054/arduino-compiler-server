@@ -2,3 +2,5 @@ node_modules
 npm-debug.log
 workspace_*
 .git
+bin
+.arduino-data
