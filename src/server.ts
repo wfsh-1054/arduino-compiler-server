@@ -220,20 +220,32 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 // ==================================================
-// 🔐 HTTPS 憑證讀取設定
+// 🔐 伺服器啟動設定 (支援 HTTPS 與 HTTP 回退機制)
 // ==================================================
-const httpsOptions = {
-    key: fs.readFileSync(path.join(__dirname, '..', 'server.key')),
-    cert: fs.readFileSync(path.join(__dirname, '..', 'server.crt'))
-};
-
 const PORT = 3000;
+const keyPath = path.join(__dirname, '..', 'server.key');
+const certPath = path.join(__dirname, '..', 'server.crt');
 
-// 🚀 啟動安全 HTTPS 伺服器
-// 🎯 關鍵修正：補上 '0.0.0.0' 允許跨作業系統、跨裝置連線
-https.createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
-    console.log(`\n==================================================`);
-    console.log(`🔒 安全加密（HTTPS）區域網路服務成功啟動！`);
-    console.log(`💻 本地測試網址：https://localhost:${PORT}`);
-    console.log(`==================================================\n`);
-});
+console.log(`\n==================================================`);
+if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+    const httpsOptions = {
+        key: fs.readFileSync(keyPath),
+        cert: fs.readFileSync(certPath)
+    };
+    https.createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
+        console.log(`🔒 安全加密 (HTTPS) 伺服器成功啟動！`);
+        console.log(`💻 本地測試網址：https://localhost:${PORT}`);
+        console.log(`📱 區網其他裝置也可以透過 https://<您的IP>:${PORT} 燒錄`);
+        console.log(`==================================================\n`);
+    });
+} else {
+    // 引入原生的 http 模組來啟動無加密伺服器
+    const http = require('http');
+    http.createServer(app).listen(PORT, '0.0.0.0', () => {
+        console.log(`🔓 一般連線 (HTTP) 伺服器成功啟動！`);
+        console.log(`💻 本地測試網址：http://localhost:${PORT}`);
+        console.log(`⚠️ 提示：Web Serial API 允許在 http://localhost 下正常運作。`);
+        console.log(`   但若要從「區網內的其他裝置」連線燒錄，必須擁有憑證並啟動 HTTPS。`);
+        console.log(`==================================================\n`);
+    });
+}
