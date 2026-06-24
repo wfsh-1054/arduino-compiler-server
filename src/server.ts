@@ -3,7 +3,7 @@ import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import https from 'https'; // 🟢 1. 引入 Node.js 內建的 HTTPS 模組
-import Bonjour from 'bonjour-service'; // 🟢 2. 引入 mDNS 廣播套件
+
 
 const app = express();
 app.use(express.json());
@@ -84,21 +84,5 @@ https.createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
     console.log(`\n==================================================`);
     console.log(`🔒 安全加密（HTTPS）區域網路服務成功啟動！`);
     console.log(`💻 本地測試網址：https://localhost:${PORT}`);
-    
-    // ==================================================
-    // 🌐 智慧區域網路 mDNS 網域廣播
-    // ==================================================
-    try {
-        const bonjour = new Bonjour();
-        bonjour.publish({ 
-            name: 'Arduino Cloud IDE Service',
-            type: 'https',
-            port: PORT,
-            host: 'arduino-ide.local' // 🎯 註冊自訂區網網域
-        });
-        console.log(`🌐 區網網域已同步廣播：https://arduino-ide.local:${PORT}`);
-    } catch (mdnsError) {
-        console.log(`⚠️ mDNS 廣播啟動失敗，但 HTTPS 正常運行：`, mdnsError);
-    }
     console.log(`==================================================\n`);
 });
