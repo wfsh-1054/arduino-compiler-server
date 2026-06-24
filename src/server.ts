@@ -10,14 +10,20 @@ app.use(express.json());
 // ==================================================
 // 隔離環境設定：強迫 arduino-cli 將所有檔案裝在專案資料夾內
 // ==================================================
-const ARDUINO_DATA_DIR = path.join(__dirname, '..', '.arduino-data');
-const ARDUINO_USER_DIR = path.join(__dirname, '..', '.arduino-data', 'user');
+// 判斷是否在 Electron ASAR 打包環境中
+const isAsar = __dirname.includes('app.asar');
+
+// 資料夾必須放在可寫入的地方 (Electron 傳入 userData 或是預設目錄)
+const ARDUINO_DATA_DIR = process.env.ARDUINO_DATA_DIR || path.join(__dirname, '..', '.arduino-data');
+const ARDUINO_USER_DIR = path.join(ARDUINO_DATA_DIR, 'user');
 
 fs.mkdirSync(ARDUINO_DATA_DIR, { recursive: true });
 fs.mkdirSync(ARDUINO_USER_DIR, { recursive: true });
 
 function getCliPath() {
-    const binDir = path.join(__dirname, '..', 'bin');
+    // 執行檔必須從 app.asar.unpacked 中讀取，因為 OS 無法執行 asar 內的二進位檔
+    const baseDir = isAsar ? __dirname.replace('app.asar', 'app.asar.unpacked') : __dirname;
+    const binDir = path.join(baseDir, '..', 'bin');
     return path.join(binDir, process.platform === 'win32' ? 'arduino-cli.exe' : 'arduino-cli');
 }
 
@@ -45,7 +51,9 @@ app.post('/api/compile', (req: Request<{}, {}, CompileRequestBody>, res: Respons
     if (!code) return res.status(400).json({ success: false, error: "請提供 code 欄位" });
 
     const buildId = Date.now();
-    const sketchDir = path.join(__dirname, '..', `workspace_${buildId}`);
+    // 使用環境變數或預設路徑
+    const workspaceRoot = process.env.WORKSPACE_DIR || path.join(__dirname, '..', 'tmp_workspace');
+    const sketchDir = path.join(workspaceRoot, `workspace_${buildId}`);
     const inoPath = path.join(sketchDir, `workspace_${buildId}.ino`);
     const outputDir = path.join(sketchDir, 'build');
 
@@ -230,29 +238,31 @@ if (fs.existsSync(frontendDist)) {
 // 🔐 伺服器啟動設定 (支援 HTTPS 與 HTTP 回退機制)
 // ==================================================
 const PORT = 3000;
-const keyPath = path.join(__dirname, '..', 'server.key');
-const certPath = path.join(__dirname, '..', 'server.crt');
 
 console.log(`\n==================================================`);
-if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
-    const httpsOptions = {
-        key: fs.readFileSync(keyPath),
-        cert: fs.readFileSync(certPath)
-    };
-    https.createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
+    // 使用環境變數或預設的 HTTPS 憑證路徑
+    const keyPath = process.env.SERVER_KEY_PATH || path.join(__dirname, '..', 'server.key');
+    const certPath = process.env.SERVER_CERT_PATH || path.join(__dirname, '..', 'server.crt');
+    const isHttps = fs.existsSync(keyPath) && fs.existsSync(certPath);
+
+    if (isHttps) {
+        const httpsOptions = {
+            key: fs.readFileSync(keyPath),
+            cert: fs.readFileSync(certPath)
+        };
+    https.createServer(httpsOptions, app).listen(PORT, '127.0.0.1', () => {
         console.log(`🔒 安全加密 (HTTPS) 伺服器成功啟動！`);
-        console.log(`💻 本地測試網址：https://localhost:${PORT}`);
-        console.log(`📱 區網其他裝置也可以透過 https://<您的IP>:${PORT} 燒錄`);
+        console.log(`💻 本地測試網址：https://127.0.0.1:${PORT}`);
+        console.log(`⚠️ 已限制僅允許本機連線 (127.0.0.1)，確保安全性。`);
         console.log(`==================================================\n`);
     });
 } else {
     // 引入原生的 http 模組來啟動無加密伺服器
     const http = require('http');
-    http.createServer(app).listen(PORT, '0.0.0.0', () => {
+    http.createServer(app).listen(PORT, '127.0.0.1', () => {
         console.log(`🔓 一般連線 (HTTP) 伺服器成功啟動！`);
-        console.log(`💻 本地測試網址：http://localhost:${PORT}`);
-        console.log(`⚠️ 提示：Web Serial API 允許在 http://localhost 下正常運作。`);
-        console.log(`   但若要從「區網內的其他裝置」連線燒錄，必須擁有憑證並啟動 HTTPS。`);
+        console.log(`💻 本地測試網址：http://127.0.0.1:${PORT}`);
+        console.log(`⚠️ 已限制僅允許本機連線 (127.0.0.1)，確保安全性。`);
         console.log(`==================================================\n`);
     });
 }

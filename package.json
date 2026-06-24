@@ -1,16 +1,19 @@
 {
-  "name": "arduino-compiler-server",
+  "name": "maker-ide",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "main.js",
   "scripts": {
     "postinstall": "npm run setup",
     "setup": "node scripts/setup.js",
     "dev:backend": "ts-node src/server.ts",
     "dev:frontend": "cd frontend && npm run dev",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build:backend": "tsc",
     "build:frontend": "cd frontend && npm run build",
-    "build": "npm run build:frontend",
+    "build": "npm run build:frontend && npm run build:backend",
+    "start:desktop": "npm run build && electron .",
+    "pack:desktop": "npm run build && electron-builder",
     "test": "echo \"Error: no test specified\" && exit 1",
     "cert": "cross-env MSYS_NO_PATHCONV=1 \"C:\\Program Files\\Git\\usr\\bin\\openssl.exe\" req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout server.key -out server.crt -subj \"/CN=arduino-ide.local\""
   },
@@ -26,7 +29,37 @@
     "@types/node": "^26.0.0",
     "concurrently": "^10.0.3",
     "cross-env": "^10.1.0",
+    "electron": "^42.5.0",
+    "electron-builder": "^26.15.3",
     "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "wait-on": "^9.0.10"
+  },
+  "build": {
+    "appId": "com.makeride.app",
+    "productName": "Maker IDE",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "dist/**/*",
+      "frontend/dist/**/*",
+      "bin/**/*",
+      "scripts/**/*"
+    ],
+    "extraResources": [
+      "server.key",
+      "server.crt"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "signExecutable": false
+    },
+    "asarUnpack": [
+      "bin/**/*"
+    ]
   }
 }

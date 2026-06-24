@@ -19,3 +19,19 @@ Thumbs.db
 .arduino-data/
 bin/
 tmp_workspace/
+tmp_test_data/
+
+# 排除 Electron 打包產物
+release/
+
+# 排除日誌與除錯檔案
+*.log
+npm-debug.log*
+
+# 排除環境變數與金鑰檔案
+.env
+.env.local
+
+# 排除編輯器設定
+.vscode/
+.idea/

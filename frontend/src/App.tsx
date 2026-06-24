@@ -1,5 +1,6 @@
+/// <reference types="@types/dom-serial" />
 import { useState, useRef, useEffect } from 'react'
-import { Terminal, Monitor, Save, Cpu, Zap, Settings, RefreshCw, Plug, Loader2 } from 'lucide-react'
+import { Terminal, Monitor, Cpu, Zap, RefreshCw, Plug, Loader2 } from 'lucide-react'
 
 // 給 window.AvrgirlArduino 以及 navigator.serial 加上 TypeScript 型別略過
 declare global {
@@ -29,6 +30,47 @@ function App() {
     if (navigator.serial) {
       originalRequestPortRef.current = navigator.serial.requestPort.bind(navigator.serial)
     }
+
+    // 檢查系統核心並在初次開啟時初始化
+    const checkAndInitSystem = async () => {
+      try {
+        setLogs(prev => [...prev, "[SYS] 🔍 檢查編譯環境中..."]);
+        const res = await fetch('/api/boards/installed');
+        if (!res.ok) {
+          setLogs(prev => [...prev, `[ERR] 檢查系統環境失敗: 伺服器狀態 ${res.status}`]);
+          return;
+        }
+        const data = await res.json();
+        
+        // 檢查是否已經安裝 arduino:avr
+        const hasAvr = data.data && data.data.platforms && data.data.platforms.some((platform: any) => platform.ID === 'arduino:avr');
+        
+        if (!hasAvr) {
+          setLogs(prev => [...prev, "[SYS] 🚀 偵測到初次啟動，準備在背景下載核心編譯檔案 (首次下載約需數分鐘)..."]);
+          const eventSource = new EventSource('/api/system/init');
+          eventSource.onmessage = (e) => {
+            if (e.data === '[DONE]') {
+              eventSource.close();
+              setLogs(prev => [...prev, "[SYS] 🎉 核心編譯檔案下載與安裝完成！現在可以開始編譯了。"]);
+            } else if (e.data.startsWith('[ERR]')) {
+              setLogs(prev => [...prev, e.data]);
+            } else {
+              setLogs(prev => [...prev, `[SYS] ${e.data}`]);
+            }
+          };
+          eventSource.onerror = () => {
+            eventSource.close();
+            setLogs(prev => [...prev, "[SYS] ❌ 系統初始化連線發生異常，請重試"]);
+          };
+        } else {
+          setLogs(prev => [...prev, "[SYS] ✅ 系統核心已準備就緒，可立即編譯。"]);
+        }
+      } catch (e: any) {
+        setLogs(prev => [...prev, "[ERR] 檢查系統環境發生例外錯誤: " + e.message]);
+      }
+    };
+
+    checkAndInitSystem();
   }, [])
 
   useEffect(() => {
@@ -216,7 +258,7 @@ function App() {
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Cpu className="text-primary w-6 h-6" />
-            <h1 className="font-bold text-lg tracking-wide">Antigravity IDE</h1>
+            <h1 className="font-bold text-lg tracking-wide">Maker IDE</h1>
           </div>
         </div>
 
