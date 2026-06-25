@@ -1,41 +1,53 @@
 # Maker IDE (Lightweight Desktop Arduino IDE)
 
-Maker IDE is a lightweight Arduino development environment designed for makers. We have seamlessly packaged a "Web Frontend" and a "Backend Compiler Server" into a single **Electron Desktop Application (.exe)**. Users can easily write code, compile it in the cloud or locally, and flash firmware seamlessly to an Arduino board via the Web Serial API—all without installing the bulky official Arduino IDE.
+Maker IDE is a lightweight, modern Arduino development environment designed for makers. We have seamlessly packaged a **React Frontend (powered by Monaco Editor)** and a **modular Express Backend Compiler** into a single, high-performance **Electron Desktop Application (.exe)**. Users can easily write code with syntax highlighting and autocompletion, compile it locally, and flash firmware seamlessly to an Arduino board via the Web Serial API—all without installing the bulky official Arduino IDE.
 
 ## 🌟 Key Features
 
-- **Ultra-Lightweight & Portable**: The application itself is only around 100MB. No complex setup is required; just click and run.
-- **Auto-Initialization on First Launch**: Upon the first launch, the system automatically downloads and installs all necessary Arduino AVR core compilers in the background. Over 800MB of core data is safely and quietly stored in your system's `AppData` directory, keeping the executable itself lightweight.
-- **One-Click COM Port Connection**: Deeply integrated with the Web Serial API and Electron, simply plug in your Arduino board and click "Select Serial Port." The system will automatically detect and connect to the first available board, eliminating the hassle of selecting ports repeatedly.
-- **Seamless Background Flashing**: Utilizes `avrgirl-arduino` to automatically write the firmware to the chip in the background after compilation is complete.
-- **Multi-Platform Flexibility**: In addition to running as a desktop application, it retains the ability to operate as a pure Web server (supports direct launching via Docker and Node.js).
+- **Ultra-Lightweight & Portable**: The desktop application package is highly optimized, requiring no complex setup. Just extract and run.
+- **Monaco Code Editor**: Integrated with VS Code's editor engine, providing:
+  - **Syntax Highlighting** for C++/Arduino code.
+  - **Smart Autocompletion** for Arduino APIs (e.g., `setup()`, `loop()`, `pinMode()`, `digitalWrite()`, `Serial.println()`, `delay()`).
+- **Auto-Initialization on First Launch**: Upon the first launch, the backend automatically downloads and installs all necessary Arduino AVR core compilers in the background. Over 800MB of core tools are securely stored in the user's local `AppData` directory, keeping the app executable lightweight.
+- **One-Click COM Port Connection**: Deeply integrated with the Web Serial API and Electron. Simply plug in your Arduino board, click "Select Serial Port", and start.
+- **Seamless Web Serial Flashing**: Features integration with `avrgirl-arduino` to flash compiled binary firmware directly from the frontend interface.
+- **Flexible Deployments**: In addition to running as a desktop app, it can run as a pure Web server (supports running via Docker and Node.js).
+
+---
 
 ## 🏗️ System Architecture
 
-This system utilizes a full-stack architecture integrated into Electron:
+The project has been refactored into a highly modular full-stack architecture:
 
-### 1. Desktop Wrapper (Electron Main Process)
-- **File**: `main.js`
-- **Function**: Responsible for launching the application window, intercepting and automatically authorizing hardware access requests from the Web Serial API, and directing the read/write paths of the Arduino toolchain to the user's `AppData` directory to prevent write conflicts in the packaged read-only environment.
+### 1. Electron Desktop Wrapper (`/main.js` & `/electron`)
+- **`main.js`**: Application entry point.
+- **`electron/window.js`**: Manages the application window creation, lifecycle, and security controls.
+- **`electron/ipcHandlers.js`**: Handles system-level IPC events, file directory paths, and auto-authorizations for hardware devices (Web Serial API).
 
-### 2. Frontend Interface (React Frontend)
-- **Tech Stack**: React, Vite, TypeScript, Web Serial API, `avrgirl-arduino`
-- **Function**: Provides a modern code editor interface. Automatically checks the compilation environment upon first launch and displays the core download progress in real-time via Server-Sent Events (SSE). After writing code, it calls the backend API to compile, retrieves the `.hex` file, and flashes it via the Web Serial API.
+### 2. Frontend Interface (`/frontend`)
+- **Tech Stack**: React, Vite, TypeScript, Monaco Editor, TailwindCSS (for styled components), `avrgirl-arduino`.
+- **`frontend/src/components/`**: Modularized UI components (e.g., `CodeEditor`, `Sidebar`, `TerminalPanel`, `TopBar`, `PortSelectModal`).
+- **`frontend/src/hooks/`**: Custom hooks for managing state and background processes.
+- **`frontend/src/api/`**: Logic for fetching compile status and monitoring compiler setup via Server-Sent Events (SSE).
 
-### 3. Compiler Server (Express Backend)
-- **File**: `src/server.ts`
-- **Function**: Provides the `/api/compile` API in the background. Receives the code from the frontend, compiles it in an isolated temporary folder using the underlying `arduino-cli`, and returns the binary firmware file.
+### 3. Compiler Server (`/src`)
+- **Tech Stack**: TypeScript, Node.js, Express, `arduino-cli`.
+- **`src/server.ts`**: Entry point for the Express compilation server.
+- **`src/routes/`**: Modularized API routes (`compile.ts`, `board.ts`, `library.ts`, `system.ts`).
+- **`src/services/`**: Core compiler helper services (`arduinoService.ts` for environment setup, `cliRunner.ts` for running shell commands safely).
+
+---
 
 ## 🚀 Quick Start
 
 ### Method 1: Use the Desktop Application (Recommended)
-1. Go to the GitHub Releases page and download the latest `Maker-IDE-v1.0.0.zip`.
-2. Extract the file and double-click `Maker IDE 1.0.0.exe`.
-3. On the first launch, wait for the terminal screen to complete the core download progress (internet connection required).
-4. Once completed, you can start writing code and click "Compile & Flash" to flash with one click!
+1. Go to the GitHub Releases page and download the latest version.
+2. Extract the file and double-click `Maker IDE.exe`.
+3. On the first launch, wait for the terminal screen to complete the compiler core downloading (requires active internet connection).
+4. Once completed, write your sketch and click "Compile & Flash" to flash it in one click!
 
 ### Method 2: Local Development & Packaging (Node.js)
-If you want to modify the source code and package it yourself:
+To modify the source code and build it yourself:
 
 1. **Install Dependencies**:
    ```bash
@@ -45,16 +57,17 @@ If you want to modify the source code and package it yourself:
    ```bash
    npm run dev
    ```
-   *(This starts both the Vite frontend server and the Express backend compiler server)*
-3. **Package as a Standalone EXE**:
+   *(This concurrent script launches the backend compiler server and the React frontend)*
+3. **Package into a Portable Executable**:
    ```bash
    npm run pack:desktop
    ```
-   The packaged file will be placed in the `release/` directory.
+   The packaged portable binary and unpacked application files will be generated in the `release/` directory.
 
 ### Method 3: Run as a Pure Web Server (Docker)
-If you only want to deploy it on a server for multiple people to use via browser:
+If you wish to deploy this on a local server for browser-based access:
 ```bash
 docker compose up --build -d
 ```
-After starting, open your browser and navigate to: `https://localhost:3000` *(Note: Due to security restrictions, the Web Serial API must operate in an HTTPS or localhost environment)*.
+After deployment, open your browser and navigate to `https://localhost:3000`.
+*(Note: Because of browser security constraints, Web Serial API requires an HTTPS or localhost context to function).*
