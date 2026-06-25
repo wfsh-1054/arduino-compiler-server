@@ -24,6 +24,9 @@ app.use('/api/libraries', libraryRoutes);
 const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
 const publicDir = path.join(__dirname, '..', 'public');
 
+// 允許透過 /test 路由隨時存取 legacy 測試介面
+app.use('/test', express.static(publicDir));
+
 if (fs.existsSync(frontendDist)) {
     console.log(`Serving static files from React dist: ${frontendDist}`);
     app.use(express.static(frontendDist));
