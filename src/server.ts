@@ -35,7 +35,8 @@ if (fs.existsSync(frontendDist)) {
 // ==================================================
 // 🔐 伺服器啟動設定 (支援 HTTPS 與 HTTP 回退機制)
 // ==================================================
-const PORT = 3000;
+const PORT = parseInt(process.env.PORT || '3000', 10);
+const HOST = process.env.HOST || '127.0.0.1';
 
 console.log(`\n==================================================`);
 // 使用環境變數或預設的 HTTPS 憑證路徑
@@ -48,19 +49,19 @@ if (isHttps) {
         key: fs.readFileSync(keyPath),
         cert: fs.readFileSync(certPath)
     };
-    https.createServer(httpsOptions, app).listen(PORT, '127.0.0.1', () => {
+    https.createServer(httpsOptions, app).listen(PORT, HOST, () => {
         console.log(`🔒 安全加密 (HTTPS) 伺服器成功啟動！`);
-        console.log(`💻 本地測試網址：https://127.0.0.1:${PORT}`);
-        console.log(`⚠️ 已限制僅允許本機連線 (127.0.0.1)，確保安全性。`);
+        console.log(`💻 測試網址：https://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
+        console.log(`🌐 監聽位址：${HOST}`);
         console.log(`==================================================\n`);
     });
 } else {
     // 引入原生的 http 模組來啟動無加密伺服器
     const http = require('http');
-    http.createServer(app).listen(PORT, '127.0.0.1', () => {
+    http.createServer(app).listen(PORT, HOST, () => {
         console.log(`🔓 一般連線 (HTTP) 伺服器成功啟動！`);
-        console.log(`💻 本地測試網址：http://127.0.0.1:${PORT}`);
-        console.log(`⚠️ 已限制僅允許本機連線 (127.0.0.1)，確保安全性。`);
+        console.log(`💻 測試網址：http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
+        console.log(`🌐 監聽位址：${HOST}`);
         console.log(`==================================================\n`);
     });
 }

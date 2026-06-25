@@ -5,6 +5,8 @@ services:
     ports:
       - "3000:3000" # 🟢 讓本機 localhost:3000 絕對暢通
     restart: always
+    environment:
+      - HOST=0.0.0.0
     volumes:
       - ./tmp_workspace:/app/workspace
       - arduino_data:/app/.arduino-data
