@@ -7,6 +7,7 @@ import compileRoutes from './routes/compileRoutes';
 import systemRoutes from './routes/systemRoutes';
 import boardRoutes from './routes/boardRoutes';
 import libraryRoutes from './routes/libraryRoutes';
+import formatRoutes from './routes/formatRoutes';
 
 const app = express();
 app.use(express.json());
@@ -18,6 +19,7 @@ app.use('/api', compileRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/boards', boardRoutes);
 app.use('/api/libraries', libraryRoutes);
+app.use('/api/format', formatRoutes);
 
 // ==================================================
 

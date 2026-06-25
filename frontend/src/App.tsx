@@ -168,7 +168,7 @@ function App() {
   }, [code, projectPath]);
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
+    <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden select-none">
       <MenuBar onNewProject={handleNewProject} onSave={handleSave} onSaveAs={handleSaveAs} />
       <div className="flex-1 flex overflow-hidden">
         {/* Port Selection Modal */}

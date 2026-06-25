@@ -18,7 +18,7 @@ export function TerminalPanel({ logs, setLogs, terminalBottomRef }: TerminalPane
           Clear
         </button>
       </div>
-      <div className="flex-1 p-4 font-mono text-[13px] overflow-y-auto text-emerald-400 leading-relaxed bg-[#0d0d0d]">
+      <div className="flex-1 p-4 font-mono text-[13px] overflow-y-auto text-emerald-400 leading-relaxed bg-[#0d0d0d] select-text">
         {logs.length === 0 ? (
           <span className="text-gray-600 italic">System ready. Waiting for commands...</span>
         ) : (

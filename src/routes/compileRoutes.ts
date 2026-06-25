@@ -5,7 +5,7 @@ const router = Router();
 
 interface CompileRequestBody {
     code: string;
-    boardType: 'uno' | 'esp32';
+    boardType: string;
 }
 
 router.post('/compile', async (req: Request<{}, {}, CompileRequestBody>, res: Response) => {

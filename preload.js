@@ -29,5 +29,8 @@ contextBridge.exposeInMainWorld('makerApi', {
 
   // 存檔 API
   saveFileAs: (code) => ipcRenderer.invoke('save-file-as', code),
-  saveFileDirect: (code, filePath) => ipcRenderer.invoke('save-file-direct', { code, filePath })
+  saveFileDirect: (code, filePath) => ipcRenderer.invoke('save-file-direct', { code, filePath }),
+
+  // 程式碼格式化 API
+  formatCode: (code) => ipcRenderer.invoke('format-code', code)
 });

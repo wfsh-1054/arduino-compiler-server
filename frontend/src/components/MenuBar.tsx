@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Save, FilePlus, BookOpen, Settings, Cloud } from 'lucide-react';
+import { Save, FilePlus, BookOpen, Settings, Cloud, Undo2, Redo2, Scissors, Copy, ClipboardPaste, Search, Wand2, TypeOutline } from 'lucide-react';
 
 interface MenuBarProps {
   onNewProject: () => void;
@@ -28,6 +28,11 @@ export function MenuBar({ onNewProject, onSave, onSaveAs }: MenuBarProps) {
 
   const handleAction = (action: () => void) => {
     action();
+    setActiveMenu(null);
+  };
+
+  const dispatchEditorCommand = (cmd: string) => {
+    document.dispatchEvent(new CustomEvent('editor-command', { detail: cmd }));
     setActiveMenu(null);
   };
 
@@ -88,7 +93,7 @@ export function MenuBar({ onNewProject, onSave, onSaveAs }: MenuBarProps) {
         )}
       </div>
 
-      {/* Edit Menu (Placeholder) */}
+      {/* Edit Menu */}
       <div className="relative">
         <button 
           className={`px-3 py-1 rounded hover:bg-zinc-800 transition-colors ${activeMenu === 'Edit' ? 'bg-zinc-800 text-white' : ''}`}
@@ -97,8 +102,50 @@ export function MenuBar({ onNewProject, onSave, onSaveAs }: MenuBarProps) {
           Edit
         </button>
         {activeMenu === 'Edit' && (
-          <div className="absolute top-full left-0 mt-1 w-48 bg-zinc-900 border border-zinc-800 rounded shadow-xl py-1 z-50">
-             <div className="px-4 py-2 text-zinc-500 italic text-xs">Features coming soon...</div>
+          <div className="absolute top-full left-0 mt-1 w-64 bg-zinc-900 border border-zinc-800 rounded shadow-xl py-1 z-50">
+            <button className="w-full text-left px-4 py-2 hover:bg-blue-600 hover:text-white flex items-center gap-2 group transition-colors" onClick={() => dispatchEditorCommand('undo')}>
+              <Undo2 className="w-4 h-4 text-zinc-400 group-hover:text-white" />
+              <span>Undo</span>
+              <span className="ml-auto text-xs text-zinc-500 group-hover:text-zinc-300">Ctrl+Z</span>
+            </button>
+            <button className="w-full text-left px-4 py-2 hover:bg-blue-600 hover:text-white flex items-center gap-2 group transition-colors" onClick={() => dispatchEditorCommand('redo')}>
+              <Redo2 className="w-4 h-4 text-zinc-400 group-hover:text-white" />
+              <span>Redo</span>
+              <span className="ml-auto text-xs text-zinc-500 group-hover:text-zinc-300">Ctrl+Y</span>
+            </button>
+            <div className="h-px bg-zinc-800 my-1"></div>
+            <button className="w-full text-left px-4 py-2 hover:bg-blue-600 hover:text-white flex items-center gap-2 group transition-colors" onClick={() => dispatchEditorCommand('cut')}>
+              <Scissors className="w-4 h-4 text-zinc-400 group-hover:text-white" />
+              <span>Cut</span>
+              <span className="ml-auto text-xs text-zinc-500 group-hover:text-zinc-300">Ctrl+X</span>
+            </button>
+            <button className="w-full text-left px-4 py-2 hover:bg-blue-600 hover:text-white flex items-center gap-2 group transition-colors" onClick={() => dispatchEditorCommand('copy')}>
+              <Copy className="w-4 h-4 text-zinc-400 group-hover:text-white" />
+              <span>Copy</span>
+              <span className="ml-auto text-xs text-zinc-500 group-hover:text-zinc-300">Ctrl+C</span>
+            </button>
+            <button className="w-full text-left px-4 py-2 hover:bg-blue-600 hover:text-white flex items-center gap-2 group transition-colors" onClick={() => dispatchEditorCommand('paste')}>
+              <ClipboardPaste className="w-4 h-4 text-zinc-400 group-hover:text-white" />
+              <span>Paste</span>
+              <span className="ml-auto text-xs text-zinc-500 group-hover:text-zinc-300">Ctrl+V</span>
+            </button>
+            <div className="h-px bg-zinc-800 my-1"></div>
+            <button className="w-full text-left px-4 py-2 hover:bg-blue-600 hover:text-white flex items-center gap-2 group transition-colors" onClick={() => dispatchEditorCommand('find')}>
+              <Search className="w-4 h-4 text-zinc-400 group-hover:text-white" />
+              <span>Find</span>
+              <span className="ml-auto text-xs text-zinc-500 group-hover:text-zinc-300">Ctrl+F</span>
+            </button>
+            <button className="w-full text-left px-4 py-2 hover:bg-blue-600 hover:text-white flex items-center gap-2 group transition-colors" onClick={() => dispatchEditorCommand('replace')}>
+              <TypeOutline className="w-4 h-4 text-zinc-400 group-hover:text-white" />
+              <span>Replace</span>
+              <span className="ml-auto text-xs text-zinc-500 group-hover:text-zinc-300">Ctrl+H</span>
+            </button>
+            <div className="h-px bg-zinc-800 my-1"></div>
+            <button className="w-full text-left px-4 py-2 hover:bg-blue-600 hover:text-white flex items-center gap-2 group transition-colors" onClick={() => dispatchEditorCommand('format')}>
+              <Wand2 className="w-4 h-4 text-zinc-400 group-hover:text-white" />
+              <span>Format Document</span>
+              <span className="ml-auto text-xs text-zinc-500 group-hover:text-zinc-300">Shift+Alt+F</span>
+            </button>
           </div>
         )}
       </div>

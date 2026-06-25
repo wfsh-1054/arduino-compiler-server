@@ -6,7 +6,7 @@ import { execArduinoCli, spawnArduinoCli } from './cliRunner';
 // Service APIs
 // ==================================================
 
-export async function compileCode(code: string, boardType: 'uno' | 'esp32'): Promise<{ success: boolean, fileBuffer?: Buffer, error?: string, ext?: string }> {
+export async function compileCode(code: string, boardType: string): Promise<{ success: boolean, fileBuffer?: Buffer, error?: string, ext?: string }> {
     if (!code) return { success: false, error: "請提供 code 欄位" };
 
     const buildId = Date.now();
@@ -20,6 +20,10 @@ export async function compileCode(code: string, boardType: 'uno' | 'esp32'): Pro
     if (boardType === 'esp32') {
         fqbn = 'esp32:esp32:esp32';
         ext = 'bin';
+    } else if (boardType === 'nano') {
+        fqbn = 'arduino:avr:nano';
+    } else if (boardType === 'nano_old') {
+        fqbn = 'arduino:avr:nano:cpu=atmega328old';
     }
 
     try {
@@ -46,7 +50,7 @@ export async function compileCode(code: string, boardType: 'uno' | 'esp32'): Pro
     }
 }
 
-export async function uploadCode(fileBuffer: Buffer, boardType: 'uno' | 'esp32', portName: string, ext: string): Promise<{ success: boolean, error?: string }> {
+export async function uploadCode(fileBuffer: Buffer, boardType: string, portName: string, ext: string): Promise<{ success: boolean, error?: string }> {
     const buildId = Date.now();
     const workspaceRoot = process.env.WORKSPACE_DIR || path.join(__dirname, '..', '..', 'tmp_workspace');
     const uploadDir = path.join(workspaceRoot, `upload_${buildId}`);
@@ -55,6 +59,10 @@ export async function uploadCode(fileBuffer: Buffer, boardType: 'uno' | 'esp32',
     let fqbn = 'arduino:avr:uno';
     if (boardType === 'esp32') {
         fqbn = 'esp32:esp32:esp32';
+    } else if (boardType === 'nano') {
+        fqbn = 'arduino:avr:nano';
+    } else if (boardType === 'nano_old') {
+        fqbn = 'arduino:avr:nano:cpu=atmega328old';
     }
 
     try {
