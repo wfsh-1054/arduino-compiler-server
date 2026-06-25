@@ -1,4 +1,6 @@
-const { ipcMain } = require('electron');
+const { ipcMain, dialog } = require('electron');
+const fs = require('fs');
+const path = require('path');
 
 function setupIpcHandlers() {
   // 動態載入編譯過後的服務 (必須在 TypeScript 編譯後執行)
@@ -55,6 +57,39 @@ function setupIpcHandlers() {
     } catch (e) {
       event.sender.send('system-progress', `[ERR] ${e.message}`);
       event.sender.send('system-progress', '[DONE]');
+    }
+  });
+
+  ipcMain.handle('save-file', async (event, code) => {
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: '另存草稿 (Save Sketch)',
+      defaultPath: 'sketch.ino',
+      filters: [{ name: 'Arduino Source', extensions: ['ino'] }]
+    });
+
+    if (canceled || !filePath) return false;
+
+    try {
+      // 確保 Arduino 的目錄規範：.ino 檔必須位於同名資料夾中
+      const dirName = path.dirname(filePath);
+      const fileName = path.basename(filePath, '.ino');
+      const expectedDirName = path.basename(dirName);
+
+      let finalPath = filePath;
+
+      if (expectedDirName !== fileName) {
+        const newDir = path.join(dirName, fileName);
+        if (!fs.existsSync(newDir)) {
+          fs.mkdirSync(newDir, { recursive: true });
+        }
+        finalPath = path.join(newDir, fileName + '.ino');
+      }
+
+      fs.writeFileSync(finalPath, code, 'utf-8');
+      return true;
+    } catch (e) {
+      console.error('Save failed:', e);
+      throw e;
     }
   });
 }

@@ -5,6 +5,7 @@ import { useSerial } from './hooks/useSerial';
 import { useCompiler } from './hooks/useCompiler';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
+import { MenuBar } from './components/MenuBar';
 import { CodeEditor } from './components/CodeEditor';
 import { TerminalPanel } from './components/TerminalPanel';
 import { PortSelectModal } from './components/PortSelectModal';
@@ -112,10 +113,31 @@ function App() {
     );
   };
 
+  const handleSave = async () => {
+    try {
+      await api.saveCode(code);
+      addLog('[SYS] 💾 程式碼已成功儲存');
+    } catch (e: any) {
+      addLog(`[ERR] 存檔失敗: ${e.message}`);
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [code]);
+
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      
-      {/* Port Selection Modal */}
+    <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
+      <MenuBar onSave={handleSave} />
+      <div className="flex-1 flex overflow-hidden">
+        {/* Port Selection Modal */}
       {portRequestList && (
         <PortSelectModal 
           portRequestList={portRequestList}
@@ -152,6 +174,7 @@ function App() {
           <CodeEditor code={code} setCode={setCode} />
           <TerminalPanel logs={logs} setLogs={setLogs} terminalBottomRef={terminalBottomRef} />
         </div>
+      </div>
       </div>
     </div>
   );
