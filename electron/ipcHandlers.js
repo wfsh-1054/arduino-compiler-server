@@ -85,6 +85,23 @@ function setupIpcHandlers() {
         finalPath = path.join(newDir, fileName + '.ino');
       }
 
+      // 判斷最終寫入路徑是否已存在檔案，手動補上覆寫警告
+      if (fs.existsSync(finalPath)) {
+        const choice = dialog.showMessageBoxSync({
+          type: 'warning',
+          buttons: ['取代', '取消'],
+          defaultId: 0,
+          cancelId: 1,
+          title: '確認另存新檔',
+          message: `${fileName}.ino 已經存在。\n您要取代它嗎？`
+        });
+        
+        // 如果使用者點擊「取消」(index 1)，則中斷存檔
+        if (choice === 1) {
+          return false;
+        }
+      }
+
       fs.writeFileSync(finalPath, code, 'utf-8');
       return true;
     } catch (e) {
