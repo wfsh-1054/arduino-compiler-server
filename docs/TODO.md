@@ -30,11 +30,11 @@
 
 ### ✂️ 編輯 (Edit) 選單
 *(主要與 Monaco Editor API 深度整合)*
-- [ ] **復原 (Undo)** / **取消復原 (Redo)** `[Frontend]`
-- [ ] **全選 (Select All)** `[Frontend]`
-- [ ] **剪下 (Cut)** / **複製 (Copy)** / **貼上 (Paste)** `[Frontend]`
-- [ ] **尋找 (Find)** / **取代 (Replace)** `[Frontend]`
-- [ ] **格式化文件 (Format Document)** `[Frontend]` `[Node.js]`
+- [x] **復原 (Undo)** / **取消復原 (Redo)** `[Frontend]`
+- [x] **全選 (Select All)** `[Frontend]` *(Monaco 內建支援或透過滑鼠操作)*
+- [x] **剪下 (Cut)** / **複製 (Copy)** / **貼上 (Paste)** `[Frontend]`
+- [x] **尋找 (Find)** / **取代 (Replace)** `[Frontend]`
+- [x] **格式化文件 (Format Document)** `[Frontend]` `[Node.js]`
   - 整合 `clang-format` 進行程式碼自動排版。
 
 ### 🚀 草稿碼 (Sketch) 選單
