@@ -6,6 +6,23 @@
 
 ---
 
+## 🚀 技術棧 (Technology Stack)
+
+本專案融合了多項現代化 Web 與桌面端技術，以達到跨平台與高效能的目的：
+
+### 前端 (Frontend)
+* **核心框架**：React 19 + Vite (提供極速的開發與建置體驗)。
+* **UI 樣式**：Tailwind CSS (純 Class 驅動的現代化樣式系統)。
+* **程式碼編輯器**：Monaco Editor (微軟開源，提供與 VS Code 同級的語法高亮、自動補全體驗)。
+* **硬體通訊**：Web Serial API (瀏覽器原生的 USB 序列埠通訊協定，實現**免外掛**的純網頁燒錄與監控)。
+
+### 後端與桌面端 (Backend & Desktop)
+* **API 伺服器**：Node.js + Express.js (提供雲端編譯的 RESTful API 與 `EventSource` 即時進度串流)。
+* **核心編譯引擎**：`arduino-cli` (Arduino 官方命令列工具，負責核心下載、套件管理與程式碼編譯)。
+* **桌面端封裝**：Electron (跨平台桌面框架，提供作業系統級別的存檔對話框、資料夾權限與 IPC 通訊)。
+
+---
+
 ## 📂 根目錄 (Root Directory)
 
 根目錄主要放置專案的全域設定檔、環境設定以及 Electron 的進入點。
@@ -46,7 +63,18 @@
 * `src/hooks/`：**自訂的 React Hooks (邏輯層)**。
   * `useSerial.ts`：封裝瀏覽器 Web Serial API，負責處理與開發板的連線、讀寫與斷線邏輯。
   * `useCompiler.ts`：負責處理將程式碼發送至後端編譯的狀態與流程控制。
-* `src/api/`：封裝呼叫 Node.js 後端 API 的 `fetch`/`axios` 邏輯。
+* `src/api/` (`makerApi.ts`)：**雙環境 API 路由層**。負責區分當前應用是 Web 還是 Desktop：
+  * **Web 模式**：透過 HTTP `fetch` 呼叫 Node.js 後端服務的 API 端口。
+  * **Desktop (Electron) 模式**：透過 IPC (Inter-Process Communication) 直接呼叫底層，不經過網路協定。
+
+---
+
+## 💻 `electron/` (桌面端主程式)
+
+這個資料夾包含了 Electron 專屬的核心邏輯，負責處理桌面版應用程式的底層權限與通訊。
+
+* `window.js`：負責建立 Electron 主視窗、設定權限隔離 (`contextIsolation`)，並攔截 Web Serial API 的硬體存取請求。
+* `ipcHandlers.js`：Electron 的「API 路由器」。負責接聽前端透過 IPC 發送的請求，並呼叫底層的 Node.js 服務 (如 `arduinoService.js`) 或作業系統原生對話框 (如存檔 `dialog`)。
 
 ---
 
@@ -64,15 +92,16 @@
 
 這張表清楚展示了**從使用者點擊畫面的那一刻起，資料是如何一步步傳遞到最底層的硬體或編譯器**：
 
-| 功能模組 (Feature) | UI 元件 (Component) | 邏輯層 (React Hook) | 前端 API (API Wrapper) | Node.js 後端路由 | 底層執行機制 |
+| 功能模組 (Feature) | UI 元件 (Component) | 邏輯層 (React Hook) | 前端 API (API Wrapper) | Node.js 路由 / Electron IPC | 底層執行機制 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **程式碼編輯** | `CodeEditor.tsx` | *(無，直接綁定 State)* | *(無)* | *(無)* | Monaco Editor |
-| **雲端編譯程式** | `TopBar.tsx` | `useCompiler.ts` | `api.compile()` | `/api/compile` | `arduino-cli compile` |
+| **手動存檔** | `MenuBar.tsx` | `App.tsx` (handleSave) | `api.saveCode()` | (Web) 無 / (Electron) `save-file` IPC | 瀏覽器下載 / `fs.writeFileSync` |
+| **雲端編譯程式** | `TopBar.tsx` | `useCompiler.ts` | `api.compile()` | `/api/compile` 或 `compile` IPC | `arduino-cli compile` |
 | **開發板燒錄** | `TopBar.tsx`<br>`PortSelectModal.tsx` | `useSerial.ts`<br>`useCompiler.ts` | *(無)* | *(無)* | 瀏覽器原生 `Web Serial API` |
 | **序列埠監控** | `TerminalPanel.tsx` | `useSerial.ts` | *(無)* | *(無)* | 瀏覽器原生 `Web Serial API` |
-| **函式庫管理** | `Sidebar.tsx` | `useLibrary.ts` *(規劃中)* | `api.installLibrary()` | `/api/libraries/*` | `arduino-cli lib` |
-| **開發板管理** | `Sidebar.tsx` | `useBoard.ts` *(規劃中)* | `api.getInstalledBoards()` | `/api/boards/*` | `arduino-cli core` |
-| **系統環境初始化** | `App.tsx` (useEffect) | *(無)* | `api.initSystem()` | `/api/system/init` | `arduino-cli core install` |
+| **函式庫管理** | `Sidebar.tsx` | `useLibrary.ts` *(規劃中)* | `api.installLibrary()` | `/api/libraries/*` 或 IPC | `arduino-cli lib` |
+| **開發板管理** | `Sidebar.tsx` | `useBoard.ts` *(規劃中)* | `api.getInstalledBoards()` | `/api/boards/*` 或 IPC | `arduino-cli core` |
+| **系統環境初始化** | `App.tsx` (useEffect) | *(無)* | `api.initSystem()` | `/api/system/init` 或 IPC | `arduino-cli core install` |
 
 > **💡 開發提示：** 
 > 透過上表可以發現，若是與**硬體通訊**（燒錄、監控）相關的功能，前端會直接透過 Hook 呼叫瀏覽器 API，**完全不需要經過 Node.js 後端**。而若是與**檔案、編譯、下載**相關的功能，就必須完整走完 `Hook -> 前端 API -> 後端 Route -> arduino-cli` 的完整流程。
