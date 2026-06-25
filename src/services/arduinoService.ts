@@ -1,66 +1,6 @@
-import { exec, spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-
-// ==================================================
-// 隔離環境設定：強迫 arduino-cli 將所有檔案裝在專案資料夾內
-// ==================================================
-const isAsar = __dirname.includes('app.asar');
-const ARDUINO_DATA_DIR = process.env.ARDUINO_DATA_DIR || path.join(__dirname, '..', '.arduino-data');
-const ARDUINO_USER_DIR = path.join(ARDUINO_DATA_DIR, 'user');
-
-if (!fs.existsSync(ARDUINO_DATA_DIR)) fs.mkdirSync(ARDUINO_DATA_DIR, { recursive: true });
-if (!fs.existsSync(ARDUINO_USER_DIR)) fs.mkdirSync(ARDUINO_USER_DIR, { recursive: true });
-
-function getCliPath() {
-    const baseDir = isAsar ? __dirname.replace('app.asar', 'app.asar.unpacked') : __dirname;
-    const binDir = path.join(baseDir, '..', 'bin');
-    return path.join(binDir, process.platform === 'win32' ? 'arduino-cli.exe' : 'arduino-cli');
-}
-
-function execArduinoCli(args: string): Promise<{ stdout: string, stderr: string }> {
-    return new Promise((resolve, reject) => {
-        const cliPath = getCliPath();
-        const cmd = `"${cliPath}" ${args}`;
-        const env = {
-            ...process.env,
-            ARDUINO_DIRECTORIES_DATA: ARDUINO_DATA_DIR,
-            ARDUINO_DATA_DIR,
-            ARDUINO_USER_DIR
-        };
-        exec(cmd, { env }, (error, stdout, stderr) => {
-            if (error) {
-                reject(new Error(stderr || stdout || error.message));
-            } else {
-                resolve({ stdout, stderr });
-            }
-        });
-    });
-}
-
-// 用於長時間執行的任務 (回傳進度)
-function spawnArduinoCli(args: string[], onData: (data: string) => void, onDone: (code: number) => void) {
-    const cliPath = getCliPath();
-    const env = { ...process.env, ARDUINO_DIRECTORIES_DATA: ARDUINO_DATA_DIR, ARDUINO_DATA_DIR, ARDUINO_USER_DIR };
-    const proc = spawn(cliPath, args, { env });
-
-    proc.stdout.on('data', d => {
-        const lines = d.toString().split('\n');
-        for (let line of lines) {
-            line = line.trim();
-            if (line) onData(line);
-        }
-    });
-
-    proc.stderr.on('data', d => {
-        const s = d.toString().trim();
-        if (s) onData(`[ERR] ${s}`);
-    });
-
-    proc.on('close', code => {
-        if (code !== null) onDone(code);
-    });
-}
+import { execArduinoCli, spawnArduinoCli } from './cliRunner';
 
 // ==================================================
 // Service APIs
@@ -70,7 +10,7 @@ export async function compileCode(code: string, boardType: 'uno' | 'esp32'): Pro
     if (!code) return { success: false, error: "請提供 code 欄位" };
 
     const buildId = Date.now();
-    const workspaceRoot = process.env.WORKSPACE_DIR || path.join(__dirname, '..', 'tmp_workspace');
+    const workspaceRoot = process.env.WORKSPACE_DIR || path.join(__dirname, '..', '..', 'tmp_workspace');
     const sketchDir = path.join(workspaceRoot, `workspace_${buildId}`);
     const inoPath = path.join(sketchDir, `workspace_${buildId}.ino`);
     const outputDir = path.join(sketchDir, 'build');
@@ -105,9 +45,10 @@ export async function compileCode(code: string, boardType: 'uno' | 'esp32'): Pro
         return { success: false, error: err.message };
     }
 }
+
 export async function uploadCode(fileBuffer: Buffer, boardType: 'uno' | 'esp32', portName: string, ext: string): Promise<{ success: boolean, error?: string }> {
     const buildId = Date.now();
-    const workspaceRoot = process.env.WORKSPACE_DIR || path.join(__dirname, '..', 'tmp_workspace');
+    const workspaceRoot = process.env.WORKSPACE_DIR || path.join(__dirname, '..', '..', 'tmp_workspace');
     const uploadDir = path.join(workspaceRoot, `upload_${buildId}`);
     const binFile = path.join(uploadDir, `firmware.${ext}`);
 
@@ -132,6 +73,7 @@ export async function uploadCode(fileBuffer: Buffer, boardType: 'uno' | 'esp32',
         return { success: false, error: err.message };
     }
 }
+
 export function initSystem(onProgress: (msg: string) => void): Promise<void> {
     return new Promise((resolve, reject) => {
         onProgress(`⏳ 開始更新核心庫索引...`);

@@ -1,102 +1,23 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
 import fs from 'fs';
 import path from 'path';
-import https from 'https'; // 🟢 1. 引入 Node.js 內建的 HTTPS 模組
-import { compileCode, initSystem, getInstalledBoards, installBoard, getInstalledLibraries, installLibrary } from './arduinoService';
+import https from 'https';
+
+import compileRoutes from './routes/compileRoutes';
+import systemRoutes from './routes/systemRoutes';
+import boardRoutes from './routes/boardRoutes';
+import libraryRoutes from './routes/libraryRoutes';
 
 const app = express();
 app.use(express.json());
 
-interface CompileRequestBody {
-    code: string;
-    boardType: 'uno' | 'esp32';
-}
-
-// 核心編譯 API 路由
-app.post('/api/compile', async (req: Request<{}, {}, CompileRequestBody>, res: Response) => {
-    const { code, boardType } = req.body;
-    const result = await compileCode(code, boardType);
-    
-    if (result.success && result.fileBuffer) {
-        res.setHeader('Content-Type', 'application/octet-stream');
-        res.setHeader('Content-Disposition', `attachment; filename=firmware.${result.ext}`);
-        return res.send(result.fileBuffer);
-    } else {
-        return res.status(500).json({ success: false, error: result.error });
-    }
-});
-
 // ==================================================
-// 系統初始化 (System Init) - Streaming API (SSE)
+// API Routes
 // ==================================================
-app.get('/api/system/init', async (req: Request, res: Response) => {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    
-    try {
-        await initSystem((msg) => res.write(`data: ${msg}\n\n`));
-        res.write(`data: [DONE]\n\n`);
-    } catch (err: any) {
-        res.write(`data: [ERR] ${err.message}\n\n`);
-        res.write(`data: [DONE]\n\n`);
-    }
-    res.end();
-});
-
-// ==================================================
-// 開發板管理 (Board Management) APIs
-// ==================================================
-app.get('/api/boards/installed', async (req: Request, res: Response) => {
-    try {
-        const data = await getInstalledBoards();
-        return res.json({ success: true, data: data });
-    } catch (e: any) {
-        return res.status(500).json({ success: false, error: e.message });
-    }
-});
-
-app.post('/api/boards/install', async (req: Request, res: Response) => {
-    const { core } = req.body;
-    if (!core) return res.status(400).json({ success: false, error: "請提供 core 參數 (例: esp32:esp32)" });
-    
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    
-    try {
-        await installBoard(core, (msg) => res.write(`data: ${msg}\n\n`));
-        res.write(`data: [DONE]\n\n`);
-    } catch (err: any) {
-        res.write(`data: [ERR] ${err.message}\n\n`);
-        res.write(`data: [DONE]\n\n`);
-    }
-    res.end();
-});
-
-// ==================================================
-// 函式庫管理 (Library Management) APIs
-// ==================================================
-app.get('/api/libraries/installed', async (req: Request, res: Response) => {
-    try {
-        const data = await getInstalledLibraries();
-        return res.json({ success: true, data: data });
-    } catch (e: any) {
-        return res.status(500).json({ success: false, error: e.message });
-    }
-});
-
-app.post('/api/libraries/install', async (req: Request, res: Response) => {
-    const { libName } = req.body;
-    if (!libName) return res.status(400).json({ success: false, error: "請提供 libName 參數" });
-    
-    try {
-        const message = await installLibrary(libName);
-        return res.json({ success: true, message });
-    } catch (err: any) {
-        return res.status(500).json({ success: false, error: err.message });
-    }
-});
+app.use('/api', compileRoutes);
+app.use('/api/system', systemRoutes);
+app.use('/api/boards', boardRoutes);
+app.use('/api/libraries', libraryRoutes);
 
 // ==================================================
 

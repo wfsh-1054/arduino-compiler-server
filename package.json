@@ -47,7 +47,8 @@
       "dist/**/*",
       "frontend/dist/**/*",
       "bin/**/*",
-      "scripts/**/*"
+      "scripts/**/*",
+      "electron/**/*"
     ],
     "extraResources": [
       "server.key",
