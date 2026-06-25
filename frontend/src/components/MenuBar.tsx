@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
-import { Save, FolderOpen, Settings } from 'lucide-react';
+import { Save, FilePlus, BookOpen, Settings, Cloud } from 'lucide-react';
 
 interface MenuBarProps {
+  onNewProject: () => void;
   onSave: () => void;
+  onSaveAs: () => void;
 }
 
-export function MenuBar({ onSave }: MenuBarProps) {
+export function MenuBar({ onNewProject, onSave, onSaveAs }: MenuBarProps) {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -44,22 +46,43 @@ export function MenuBar({ onSave }: MenuBarProps) {
         </button>
         
         {activeMenu === 'File' && (
-          <div className="absolute top-full left-0 mt-1 w-48 bg-zinc-900 border border-zinc-800 rounded shadow-xl py-1 z-50">
+          <div className="absolute top-full left-0 mt-1 w-56 bg-zinc-900 border border-zinc-800 rounded shadow-xl py-1 z-50">
+            <button 
+              className="w-full text-left px-4 py-2 hover:bg-blue-600 hover:text-white flex items-center gap-2 group transition-colors"
+              onClick={() => handleAction(onNewProject)}
+            >
+              <FilePlus className="w-4 h-4 text-zinc-400 group-hover:text-white" />
+              <span>New Blank Project</span>
+            </button>
+            <div className="h-px bg-zinc-800 my-1"></div>
             <button 
               className="w-full text-left px-4 py-2 hover:bg-blue-600 hover:text-white flex items-center gap-2 group transition-colors"
               onClick={() => handleAction(onSave)}
             >
               <Save className="w-4 h-4 text-zinc-400 group-hover:text-white" />
-              <span>Save As...</span>
+              <span>Save</span>
               <span className="ml-auto text-xs text-zinc-500 group-hover:text-zinc-300">Ctrl+S</span>
             </button>
-            <div className="h-px bg-zinc-800 my-1"></div>
             <button 
-              className="w-full text-left px-4 py-2 hover:bg-blue-600 hover:text-white flex items-center gap-2 group transition-colors opacity-50 cursor-not-allowed"
-              title="Coming soon"
+              className="w-full text-left px-4 py-2 hover:bg-blue-600 hover:text-white flex items-center gap-2 group transition-colors"
+              onClick={() => handleAction(onSaveAs)}
             >
-              <FolderOpen className="w-4 h-4 text-zinc-400 group-hover:text-white" />
-              <span>Open Folder</span>
+              <Save className="w-4 h-4 text-zinc-400 group-hover:text-white" />
+              <span>Save As...</span>
+              <span className="ml-auto text-xs text-zinc-500 group-hover:text-zinc-300">Ctrl+Shift+S</span>
+            </button>
+            <div className="h-px bg-zinc-800 my-1"></div>
+            <button className="w-full text-left px-4 py-2 hover:bg-blue-600 hover:text-white flex items-center gap-2 group transition-colors opacity-50 cursor-not-allowed" title="Coming soon">
+              <BookOpen className="w-4 h-4 text-zinc-400 group-hover:text-white" />
+              <span>Examples</span>
+            </button>
+            <button className="w-full text-left px-4 py-2 hover:bg-blue-600 hover:text-white flex items-center gap-2 group transition-colors opacity-50 cursor-not-allowed" title="Coming soon">
+              <Settings className="w-4 h-4 text-zinc-400 group-hover:text-white" />
+              <span>Preferences</span>
+            </button>
+            <button className="w-full text-left px-4 py-2 hover:bg-blue-600 hover:text-white flex items-center gap-2 group transition-colors opacity-50 cursor-not-allowed" title="Coming soon">
+              <Cloud className="w-4 h-4 text-zinc-400 group-hover:text-white" />
+              <span>Remote...</span>
             </button>
           </div>
         )}
@@ -80,26 +103,35 @@ export function MenuBar({ onSave }: MenuBarProps) {
         )}
       </div>
 
-      {/* View Menu (Placeholder) */}
+      {/* Sketch Menu (Placeholder) */}
       <div className="relative">
         <button 
-          className={`px-3 py-1 rounded hover:bg-zinc-800 transition-colors ${activeMenu === 'View' ? 'bg-zinc-800 text-white' : ''}`}
-          onClick={() => toggleMenu('View')}
+          className={`px-3 py-1 rounded hover:bg-zinc-800 transition-colors ${activeMenu === 'Sketch' ? 'bg-zinc-800 text-white' : ''}`}
+          onClick={() => toggleMenu('Sketch')}
         >
-          View
+          Sketch
         </button>
-        {activeMenu === 'View' && (
+        {activeMenu === 'Sketch' && (
           <div className="absolute top-full left-0 mt-1 w-48 bg-zinc-900 border border-zinc-800 rounded shadow-xl py-1 z-50">
-             <button 
-              className="w-full text-left px-4 py-2 hover:bg-blue-600 hover:text-white flex items-center gap-2 group transition-colors opacity-50 cursor-not-allowed"
-            >
-              <Settings className="w-4 h-4 text-zinc-400 group-hover:text-white" />
-              <span>Settings</span>
-            </button>
+             <div className="px-4 py-2 text-zinc-500 italic text-xs">Features coming soon...</div>
           </div>
         )}
       </div>
 
+      {/* Tool Menu (Placeholder) */}
+      <div className="relative">
+        <button 
+          className={`px-3 py-1 rounded hover:bg-zinc-800 transition-colors ${activeMenu === 'Tool' ? 'bg-zinc-800 text-white' : ''}`}
+          onClick={() => toggleMenu('Tool')}
+        >
+          Tools
+        </button>
+        {activeMenu === 'Tool' && (
+          <div className="absolute top-full left-0 mt-1 w-48 bg-zinc-900 border border-zinc-800 rounded shadow-xl py-1 z-50">
+             <div className="px-4 py-2 text-zinc-500 italic text-xs">Features coming soon...</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

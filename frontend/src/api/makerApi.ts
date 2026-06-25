@@ -79,10 +79,10 @@ export const api = {
     throw new Error("Not supported in Web mode natively");
   },
 
-  saveCode: async (code: string): Promise<boolean> => {
+  saveCodeAs: async (code: string): Promise<string | undefined> => {
     if (window.makerApi) {
-      // Electron mode: use native save dialog
-      return await window.makerApi.saveFile(code);
+      // Electron mode: use native save dialog, returns saved path
+      return await window.makerApi.saveFileAs(code);
     } else {
       // Web mode: download as sketch.ino
       const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
@@ -96,7 +96,14 @@ export const api = {
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
       }, 0);
-      return true;
+      return undefined; // Web 模式不會有明確的路徑
     }
+  },
+
+  saveCodeDirect: async (code: string, filePath: string): Promise<boolean> => {
+    if (window.makerApi) {
+      return await window.makerApi.saveFileDirect(code, filePath);
+    }
+    throw new Error("Web 模式不支援直接無聲覆寫實體檔案");
   }
 };

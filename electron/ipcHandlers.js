@@ -60,14 +60,14 @@ function setupIpcHandlers() {
     }
   });
 
-  ipcMain.handle('save-file', async (event, code) => {
+  ipcMain.handle('save-file-as', async (event, code) => {
     const { canceled, filePath } = await dialog.showSaveDialog({
       title: '另存草稿 (Save Sketch)',
       defaultPath: 'sketch.ino',
       filters: [{ name: 'Arduino Source', extensions: ['ino'] }]
     });
 
-    if (canceled || !filePath) return false;
+    if (canceled || !filePath) return null;
 
     try {
       // 確保 Arduino 的目錄規範：.ino 檔必須位於同名資料夾中
@@ -98,14 +98,24 @@ function setupIpcHandlers() {
         
         // 如果使用者點擊「取消」(index 1)，則中斷存檔
         if (choice === 1) {
-          return false;
+          return null;
         }
       }
 
       fs.writeFileSync(finalPath, code, 'utf-8');
-      return true;
+      return finalPath; // 回傳實際儲存的路徑
     } catch (e) {
       console.error('Save failed:', e);
+      throw e;
+    }
+  });
+
+  ipcMain.handle('save-file-direct', async (event, { code, filePath }) => {
+    try {
+      fs.writeFileSync(filePath, code, 'utf-8');
+      return true;
+    } catch (e) {
+      console.error('Direct save failed:', e);
       throw e;
     }
   });

@@ -28,5 +28,6 @@ contextBridge.exposeInMainWorld('makerApi', {
   cancelSerialPort: () => ipcRenderer.send('serial-port-cancelled'),
 
   // 存檔 API
-  saveFile: (code) => ipcRenderer.invoke('save-file', code)
+  saveFileAs: (code) => ipcRenderer.invoke('save-file-as', code),
+  saveFileDirect: (code, filePath) => ipcRenderer.invoke('save-file-direct', { code, filePath })
 });

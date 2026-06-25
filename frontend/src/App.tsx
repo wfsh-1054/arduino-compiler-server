@@ -21,6 +21,7 @@ declare global {
 function App() {
   const [boardType, setBoardType] = useState('uno');
   const [code, setCode] = useState(`void setup() {\n  Serial.begin(9600);\n  pinMode(13, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(13, HIGH);\n  Serial.println("LED ON");\n  delay(1000);\n  digitalWrite(13, LOW);\n  Serial.println("LED OFF");\n  delay(1000);\n}`);
+  const [projectPath, setProjectPath] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [libSearch, setLibSearch] = useState('');
 
@@ -113,29 +114,62 @@ function App() {
     );
   };
 
+  const handleNewProject = () => {
+    setCode(`void setup() {\n  \n}\n\nvoid loop() {\n  \n}`);
+    setProjectPath(null);
+    addLog('[SYS] 📄 已建立空白專案');
+  };
+
   const handleSave = async () => {
     try {
-      await api.saveCode(code);
-      addLog('[SYS] 💾 程式碼已成功儲存');
+      if (window.makerApi && projectPath) {
+        // Desktop 模式且已經有路徑，直接無聲覆寫
+        await api.saveCodeDirect(code, projectPath);
+        addLog('[SYS] 💾 專案已儲存');
+      } else {
+        // 沒有路徑或 Web 模式，呼叫另存新檔
+        await handleSaveAs();
+      }
     } catch (e: any) {
       addLog(`[ERR] 存檔失敗: ${e.message}`);
     }
   };
 
+  const handleSaveAs = async () => {
+    try {
+      const savedPath = await api.saveCodeAs(code);
+      if (savedPath) {
+        setProjectPath(savedPath); // 更新當前專案路徑
+        addLog(`[SYS] 💾 專案已另存至: ${savedPath}`);
+      } else if (savedPath === undefined) {
+        // Web 版的 saveCodeAs 回傳 undefined 但會觸發下載
+        addLog('[SYS] 💾 程式碼已下載儲存');
+      }
+    } catch (e: any) {
+      addLog(`[ERR] 另存新檔失敗: ${e.message}`);
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      // Ctrl+S
+      if ((e.ctrlKey || e.metaKey) && e.key === 's' && !e.shiftKey) {
         e.preventDefault();
         handleSave();
+      }
+      // Ctrl+Shift+S
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        handleSaveAs();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [code]);
+  }, [code, projectPath]);
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
-      <MenuBar onSave={handleSave} />
+      <MenuBar onNewProject={handleNewProject} onSave={handleSave} onSaveAs={handleSaveAs} />
       <div className="flex-1 flex overflow-hidden">
         {/* Port Selection Modal */}
       {portRequestList && (
