@@ -17,7 +17,7 @@
 ## 📝 待辦清單 (TODO) - 參考 Arduino IDE 選單架構
 
 ### 📁 檔案 (File) 選單
-- [ ] **建立空白專案 (New Blank Project)** `[Frontend]` `[Electron]`
+- [x] **建立空白專案 (New Blank Project)** `[Frontend]` `[Electron]`
   - 初始化一個全新的專案結構，包含預設的 `.ino` 檔案。
 - [x] **儲存專案 (Save)** `[Frontend]` `[Node.js]` `[Electron]` *(已實作基礎版本)*
 - [x] **另存專案 (Save As...)** `[Frontend]` `[Node.js]` `[Electron]` *(已實作基礎版本)*
