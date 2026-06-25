@@ -105,5 +105,27 @@ export const api = {
       return await window.makerApi.saveFileDirect(code, filePath);
     }
     throw new Error("Web 模式不支援直接無聲覆寫實體檔案");
+  },
+
+  formatCode: async (code: string): Promise<string> => {
+    try {
+      if (window.makerApi && window.makerApi.formatCode) {
+        // Electron mode
+        return await window.makerApi.formatCode(code);
+      } else {
+        // Web mode
+        const response = await fetch('/api/format', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        return data.formattedCode;
+      }
+    } catch (e: any) {
+      console.error('Format error:', e);
+      throw e;
+    }
   }
 };

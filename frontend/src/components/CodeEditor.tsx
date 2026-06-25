@@ -1,4 +1,5 @@
 import Editor from '@monaco-editor/react';
+import { useRef, useEffect } from 'react';
 
 interface CodeEditorProps {
   code: string;
@@ -6,7 +7,60 @@ interface CodeEditorProps {
 }
 
 export function CodeEditor({ code, setCode }: CodeEditorProps) {
+  const editorRef = useRef<any>(null);
+
+  useEffect(() => {
+    const handleEditorCommand = (e: any) => {
+      if (!editorRef.current) return;
+      const editor = editorRef.current;
+      const cmd = e.detail;
+
+      switch (cmd) {
+        case 'undo':
+          editor.trigger('keyboard', 'undo', null);
+          break;
+        case 'redo':
+          editor.trigger('keyboard', 'redo', null);
+          break;
+        case 'cut':
+          editor.focus();
+          editor.trigger('keyboard', 'editor.action.clipboardCutAction', null);
+          break;
+        case 'copy':
+          editor.focus();
+          editor.trigger('keyboard', 'editor.action.clipboardCopyAction', null);
+          break;
+        case 'paste':
+          editor.focus();
+          editor.trigger('keyboard', 'editor.action.clipboardPasteAction', null);
+          break;
+        case 'find':
+          editor.trigger('keyboard', 'actions.find', null);
+          break;
+        case 'replace':
+          editor.trigger('keyboard', 'editor.action.startFindReplaceAction', null);
+          break;
+        case 'format':
+          import('../api/makerApi').then(({ api }) => {
+            api.formatCode(editor.getValue())
+              .then(formatted => {
+                if (formatted) setCode(formatted);
+              })
+              .catch(err => {
+                console.error('Format failed:', err);
+                alert('Formatting failed: ' + err.message);
+              });
+          });
+          break;
+      }
+    };
+
+    document.addEventListener('editor-command', handleEditorCommand);
+    return () => document.removeEventListener('editor-command', handleEditorCommand);
+  }, []);
+
   const handleEditorDidMount = (editor: any, monaco: any) => {
+    editorRef.current = editor;
     editor.focus();
 
     monaco.languages.registerCompletionItemProvider('cpp', {

@@ -39,6 +39,8 @@ export function Sidebar({
             onChange={e => setBoardType(e.target.value)}
           >
             <option value="uno">Arduino Uno (avr)</option>
+            <option value="nano">Arduino Nano</option>
+            <option value="nano_old">Arduino Nano (Old Bootloader)</option>
             <option value="esp32">ESP32 (esp32)</option>
           </select>
         </div>
