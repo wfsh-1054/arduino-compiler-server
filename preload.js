@@ -25,5 +25,8 @@ contextBridge.exposeInMainWorld('makerApi', {
     ipcRenderer.on('serial-port-request', (event, portList) => callback(portList));
   },
   selectSerialPort: (portId) => ipcRenderer.send('serial-port-selected', portId),
-  cancelSerialPort: () => ipcRenderer.send('serial-port-cancelled')
+  cancelSerialPort: () => ipcRenderer.send('serial-port-cancelled'),
+
+  // 存檔 API
+  saveFile: (code) => ipcRenderer.invoke('save-file', code)
 });

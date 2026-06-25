@@ -77,5 +77,26 @@ export const api = {
       return await window.makerApi.upload(fileBuffer, boardType, connectedPortName, ext);
     }
     throw new Error("Not supported in Web mode natively");
+  },
+
+  saveCode: async (code: string): Promise<boolean> => {
+    if (window.makerApi) {
+      // Electron mode: use native save dialog
+      return await window.makerApi.saveFile(code);
+    } else {
+      // Web mode: download as sketch.ino
+      const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'sketch.ino';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 0);
+      return true;
+    }
   }
 };
