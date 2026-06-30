@@ -1,15 +1,17 @@
 import { exec, spawn } from 'child_process';
-import { ARDUINO_DATA_DIR, ARDUINO_USER_DIR, getCliPath } from '../config/paths';
+import { getArduinoDataDir, getArduinoUserDir, getCliPath } from '../config/paths';
 
 export function execArduinoCli(args: string): Promise<{ stdout: string, stderr: string }> {
     return new Promise((resolve, reject) => {
         const cliPath = getCliPath();
         const cmd = `"${cliPath}" ${args}`;
+        const dataDir = getArduinoDataDir();
+        const userDir = getArduinoUserDir();
         const env = {
             ...process.env,
-            ARDUINO_DIRECTORIES_DATA: ARDUINO_DATA_DIR,
-            ARDUINO_DATA_DIR,
-            ARDUINO_USER_DIR
+            ARDUINO_DIRECTORIES_DATA: dataDir,
+            ARDUINO_DATA_DIR: dataDir,
+            ARDUINO_USER_DIR: userDir
         };
         exec(cmd, { env }, (error, stdout, stderr) => {
             if (error) {
@@ -24,7 +26,9 @@ export function execArduinoCli(args: string): Promise<{ stdout: string, stderr: 
 // 用於長時間執行的任務 (回傳進度)
 export function spawnArduinoCli(args: string[], onData: (data: string) => void, onDone: (code: number) => void) {
     const cliPath = getCliPath();
-    const env = { ...process.env, ARDUINO_DIRECTORIES_DATA: ARDUINO_DATA_DIR, ARDUINO_DATA_DIR, ARDUINO_USER_DIR };
+    const dataDir = getArduinoDataDir();
+    const userDir = getArduinoUserDir();
+    const env = { ...process.env, ARDUINO_DIRECTORIES_DATA: dataDir, ARDUINO_DATA_DIR: dataDir, ARDUINO_USER_DIR: userDir };
     const proc = spawn(cliPath, args, { env });
 
     proc.stdout.on('data', d => {

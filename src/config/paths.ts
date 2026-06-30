@@ -6,26 +6,36 @@ import fs from 'fs';
 // ==================================================
 export const isAsar = __dirname.includes('app.asar');
 
-let defaultDataDir = path.join(__dirname, '..', '..', '.arduino-data');
-
-// 若在 Electron 環境中執行 (無論是開發期或打包後)，改存放到系統標準的 AppData / Application Support 目錄
-if (process.versions && process.versions.electron) {
-    try {
-        const { app } = require('electron');
-        if (app) {
-            defaultDataDir = path.join(app.getPath('userData'), '.arduino-data');
-        }
-    } catch (e) {
-        console.warn('Failed to get Electron userData path, falling back to local directory.');
+export function getArduinoDataDir(): string {
+    if (process.env.ARDUINO_DATA_DIR) {
+        if (!fs.existsSync(process.env.ARDUINO_DATA_DIR)) fs.mkdirSync(process.env.ARDUINO_DATA_DIR, { recursive: true });
+        return process.env.ARDUINO_DATA_DIR;
     }
+
+    let defaultDataDir = path.join(__dirname, '..', '..', '.arduino-data');
+
+    // 若在 Electron 環境中執行 (無論是開發期或打包後)，改存放到系統標準的 AppData / Application Support 目錄
+    if (process.versions && process.versions.electron) {
+        try {
+            const { app } = require('electron');
+            if (app && app.isReady()) {
+                defaultDataDir = path.join(app.getPath('userData'), '.arduino-data');
+            }
+        } catch (e) {
+            console.warn('Failed to get Electron userData path, falling back to local directory.');
+        }
+    }
+
+    if (!fs.existsSync(defaultDataDir)) fs.mkdirSync(defaultDataDir, { recursive: true });
+    return defaultDataDir;
 }
 
-export const ARDUINO_DATA_DIR = process.env.ARDUINO_DATA_DIR || defaultDataDir;
-export const ARDUINO_USER_DIR = path.join(ARDUINO_DATA_DIR, 'user');
-
-// 確保目錄存在
-if (!fs.existsSync(ARDUINO_DATA_DIR)) fs.mkdirSync(ARDUINO_DATA_DIR, { recursive: true });
-if (!fs.existsSync(ARDUINO_USER_DIR)) fs.mkdirSync(ARDUINO_USER_DIR, { recursive: true });
+export function getArduinoUserDir(): string {
+    const dataDir = getArduinoDataDir();
+    const userDir = path.join(dataDir, 'user');
+    if (!fs.existsSync(userDir)) fs.mkdirSync(userDir, { recursive: true });
+    return userDir;
+}
 
 export function getCliPath() {
     const baseDir = isAsar ? __dirname.replace('app.asar', 'app.asar.unpacked') : __dirname;
