@@ -5,7 +5,22 @@ import fs from 'fs';
 // 隔離環境設定：強迫 arduino-cli 將所有檔案裝在專案資料夾內
 // ==================================================
 export const isAsar = __dirname.includes('app.asar');
-export const ARDUINO_DATA_DIR = process.env.ARDUINO_DATA_DIR || path.join(__dirname, '..', '..', '.arduino-data');
+
+let defaultDataDir = path.join(__dirname, '..', '..', '.arduino-data');
+
+// 若在 Electron 環境中執行 (無論是開發期或打包後)，改存放到系統標準的 AppData / Application Support 目錄
+if (process.versions && process.versions.electron) {
+    try {
+        const { app } = require('electron');
+        if (app) {
+            defaultDataDir = path.join(app.getPath('userData'), '.arduino-data');
+        }
+    } catch (e) {
+        console.warn('Failed to get Electron userData path, falling back to local directory.');
+    }
+}
+
+export const ARDUINO_DATA_DIR = process.env.ARDUINO_DATA_DIR || defaultDataDir;
 export const ARDUINO_USER_DIR = path.join(ARDUINO_DATA_DIR, 'user');
 
 // 確保目錄存在
