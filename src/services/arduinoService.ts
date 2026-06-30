@@ -65,11 +65,18 @@ export async function uploadCode(fileBuffer: Buffer, boardType: string, portName
         fqbn = 'arduino:avr:nano:cpu=atmega328old';
     }
 
+    let finalPortName = portName;
+    if (process.platform === 'darwin' || process.platform === 'linux') {
+        if (!finalPortName.startsWith('/dev/')) {
+            finalPortName = `/dev/${finalPortName}`;
+        }
+    }
+
     try {
         fs.mkdirSync(uploadDir, { recursive: true });
         fs.writeFileSync(binFile, fileBuffer);
 
-        const uploadArgs = `upload -p "${portName}" --fqbn ${fqbn} --input-file "${binFile}"`;
+        const uploadArgs = `upload -p "${finalPortName}" --fqbn ${fqbn} --input-file "${binFile}"`;
         await execArduinoCli(uploadArgs);
 
         fs.rmSync(uploadDir, { recursive: true, force: true });
